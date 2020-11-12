@@ -149,11 +149,45 @@ void JobsList::removeFinishedJobs() {
 }
 
 JobsList::JobEntry *JobsList::getJobById(int jobId) {
-    JobEntry* it = jobsList.begin();
+    auto it = jobsList.begin();
     while (it != jobsList.end()){
         if (it->jobId == jobId)
-            return it;
+            return &*it;
+        it++;
     }
+    if (it->jobId == jobId)
+        return &*it;
+    else
+        //throw error not found
 
 
+}
+
+void JobsList::removeJobById(int jobId) {
+    auto it = jobsList.begin();
+    while (it != jobsList.end()){
+        if (it->jobId == jobId)
+            jobsList.erase(it);
+        it++;
+    }
+    if (it->jobId == jobId)
+        jobsList.erase(it);
+    else
+    //throw error not found
+}
+
+JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
+    auto it = jobsList.end();
+    while (it != jobsList.begin()){
+        if (it->isStopped) {
+            *jobId = it->jobId;
+            return &*it;
+        }
+        it++;
+    }
+    if (it->isStopped){
+        *jobId = it->jobId;
+        return &*it;
+    } else
+        //error
 }
