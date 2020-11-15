@@ -96,18 +96,25 @@ SmallShell::~SmallShell() {
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
-	// For example:
-/*
+
   string cmd_s = string(cmd_line);
   if (cmd_s.find("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line);
   }
-  else if ...
-  .....
+  else if (cmd_s.find("showpid") == 0){
+      return new ShowPidCommand(cmd_line);
+  }
+  else if (cmd_s.find("cd") == 0){
+      char* cmd_args[20];
+      _parseCommandLine(cmd_line,cmd_args);
+      return new ChangeDirCommand(cmd_line,cmd_args);
+  }
+  else if (cmd_s.find("jobs") == 0){
+      return new JobsCommand();
+  }.....
   else {
     return new ExternalCommand(cmd_line);
   }
-  */
   return nullptr;
 }
 

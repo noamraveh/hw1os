@@ -6,14 +6,17 @@
 using namespace std;
 
 void ctrlZHandler(int sig_num) {
+    exit(1);
 	// TODO: Add your implementation
 }
 
 void ctrlCHandler(int sig_num) {
   // TODO: Add your implementation
+    exit(1);
 }
 
 void alarmHandler(int sig_num) {
   // TODO: Add your implementation
+    exit(1);
 }
 
