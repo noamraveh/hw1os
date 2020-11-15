@@ -31,6 +31,7 @@ string _ltrim(const std::string& s)
 {
   size_t start = s.find_first_not_of(WHITESPACE);
   return (start == std::string::npos) ? "" : s.substr(start);
+
 }
 
 string _rtrim(const std::string& s)
