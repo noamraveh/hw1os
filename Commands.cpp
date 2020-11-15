@@ -85,6 +85,7 @@ void _removeBackgroundSign(char* cmd_line) {
 // TODO: Add your implementation for classes in Commands.h 
 
 SmallShell::SmallShell() {
+    LastWorkingDir = ;//add address of initial dir
 // TODO: add your implementation
 }
 
@@ -98,20 +99,38 @@ SmallShell::~SmallShell() {
 Command * SmallShell::CreateCommand(const char* cmd_line) {
 
   string cmd_s = string(cmd_line);
+  char* cmd_args[20];
+  _parseCommandLine(cmd_line,cmd_args);
   if (cmd_s.find("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line);
+  }
+  else if (cmd_s.find("chprompt") == 0){
+      return new ChangePromptCommand(cmd_line,cmd_args);
+  }
+  else if (cmd_s.find("ls") == 0){
+      return new ShowFilesCommand(cmd_line);
   }
   else if (cmd_s.find("showpid") == 0){
       return new ShowPidCommand(cmd_line);
   }
   else if (cmd_s.find("cd") == 0){
-      char* cmd_args[20];
-      _parseCommandLine(cmd_line,cmd_args);
       return new ChangeDirCommand(cmd_line,cmd_args);
   }
   else if (cmd_s.find("jobs") == 0){
-      return new JobsCommand();
-  }.....
+      return new JobsCommand(cmd_line,jobs_list);
+  }
+  else if (cmd_s.find("kill") == 0){
+      return new KillCommand(cmd_line,jobs_list);
+  }
+  else if (cmd_s.find("fg") == 0){
+      return new ForegroundCommand(cmd_line,jobs_list);
+  }
+  else if (cmd_s.find("fg") == 0){
+      return new ForegroundCommand(cmd_line,jobs_list);
+  }
+  else if (cmd_s.find("quit") == 0){
+      return new QuitCommand(cmd_line,jobs_list);
+  }
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -197,4 +216,8 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
         return &*it;
     } else
         //error
+}
+
+void ShowPidCommand::execute() {
+    cout << "smash pid is " << getpid() << endl;
 }

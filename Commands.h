@@ -50,6 +50,23 @@ class RedirectionCommand : public Command {
   //void cleanup() override;
 };
 
+
+class ChangePromptCommand : public BuiltInCommand {
+// TODO: Add your data members
+public:
+    ChangePromptCommand(const char* cmd_line, char** plastPwd);
+    virtual ~ChangePromptCommand()() {}
+    void execute() override;
+};
+
+class ShowFilesCommand : public BuiltInCommand {
+// TODO: Add your data members
+public:
+    ShowFilesCommand (const char* cmd_line);
+    virtual ~ShowFilesCommand ()() {}
+    void execute() override;
+};
+
 class ChangeDirCommand : public BuiltInCommand {
 // TODO: Add your data members
  public:
@@ -74,7 +91,8 @@ class ShowPidCommand : public BuiltInCommand {
 
 class JobsList;
 class QuitCommand : public BuiltInCommand {
-// TODO: Add your data members public:
+// TODO: Add your data members
+public:
   QuitCommand(const char* cmd_line, JobsList* jobs);
   virtual ~QuitCommand() {}
   void execute() override;
@@ -166,6 +184,8 @@ class BackgroundCommand : public BuiltInCommand {
 
 class SmallShell {
  private:
+    char* LastWorkingDir;
+    JobsList* jobs_list;
   // TODO: Add your data members
   SmallShell();
  public:
