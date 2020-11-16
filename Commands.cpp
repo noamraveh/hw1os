@@ -53,7 +53,7 @@ int _parseCommandLine(const char* cmd_line, char** args) {
     args[i] = (char*)malloc(s.length()+1);
     memset(args[i], 0, s.length()+1);
     strcpy(args[i], s.c_str());
-    args[++i] = NULL;
+    args[++i] = nullptr;
   }
   return i;
 
@@ -106,7 +106,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     return new GetCurrDirCommand(cmd_line);
   }
   else if (cmd_s.find("chprompt") == 0){
-      return new ChangePromptCommand(cmd_line,cmd_args);
+      return new ChangePromptCommand(cmd_line,cmd_args,this);
   }
   else if (cmd_s.find("ls") == 0){
       return new ShowFilesCommand(cmd_line);
@@ -221,4 +221,12 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
 
 void ShowPidCommand::execute() {
     cout << "smash pid is " << getpid() << endl;
+}
+
+void ChangePromptCommand::execute() {
+    smash->setName(newName);
+}
+
+void GetCurrDirCommand::execute() {
+    cout << getcwd() << endl ;
 }
