@@ -5,6 +5,9 @@
 #include <vector>
 #include <ctime>
 #include <string>
+#include <set>
+#include <dirent.h>
+
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
@@ -49,22 +52,6 @@ public:
     void execute() override;
     //void prepare() override;
     //void cleanup() override;
-};
-
-class ShowFilesCommand : public BuiltInCommand {
-// TODO: Add your data members
-public:
-    ShowFilesCommand (const char* cmd_line);
-    virtual ~ShowFilesCommand () {}
-    void execute() override;
-};
-
-class ChangeDirCommand : public BuiltInCommand {
-// TODO: Add your data members
- public:
-  ChangeDirCommand(const char* cmd_line, char** plastPwd);
-  virtual ~ChangeDirCommand() {}
-  void execute() override;
 };
 
 
@@ -168,8 +155,8 @@ class BackgroundCommand : public BuiltInCommand {
 
 class SmallShell {
 private:
-    std::string PrevDir;
-    std::string CurDir;
+    char* PrevDir;
+    char* CurDir;
     std::string shellName;
     JobsList* jobs_list{};
     // TODO: Add your data members
@@ -191,9 +178,18 @@ public:
     void setName(std::string newName){
         shellName = newName;
     }
-    std::string getDir(){
+    char* getDir(){
         return CurDir;
     }
+    char* getPrevDir(){
+        return PrevDir;
+    }
+    void updateDirs(){
+        free(PrevDir);
+        PrevDir = CurDir;
+        CurDir = get_current_dir_name();
+    }
+
     void executeCommand(const char *cmd_line);
     // TODO: add extra methods as needed
 };
@@ -221,7 +217,31 @@ public:
     ~GetCurrDirCommand() override {}
     void execute() override;
 };
+class ChangeDirCommand : public BuiltInCommand {
+// TODO: Add your data members
+    SmallShell* smash;
+    char* newPath;
+    bool isInputValid;
+public:
+    ChangeDirCommand(const char* cmd_line, char** plastPwd, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash), newPath(nullptr),isInputValid(true){
+        if(plastPwd[2]!= nullptr){
+            isInputValid = false;
+        }
+        else{
+            newPath = plastPwd[1];
+        }
+    } ;
+    virtual ~ChangeDirCommand() {}
+    void execute() override;
+};
 
+class ShowFilesCommand : public BuiltInCommand {
+    SmallShell* smash;
+public:
+    ShowFilesCommand (const char* cmd_line, SmallShell* smash):BuiltInCommand(cmd_line), smash(smash){};
+    virtual ~ShowFilesCommand () {}
+    void execute() override;
+};
 // TODO: add more classes if needed 
 // maybe ls, timeout ?
 

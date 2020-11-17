@@ -82,17 +82,20 @@ void _removeBackgroundSign(char* cmd_line) {
   // truncate the command line string up to the last non-space character
   cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
-
+void goBack(char* current){
+    *(strrchr(current, '/') + 1) = 0;
+}
 // TODO: Add your implementation for classes in Commands.h 
 
 SmallShell::SmallShell() {
     shellName = "smash";
     CurDir =  get_current_dir_name();
-    PrevDir = CurDir;
+    PrevDir = get_current_dir_name();
 }
 
 SmallShell::~SmallShell() {
-// TODO: add your implementation
+    free(CurDir);
+    free(PrevDir);
 }
 
 /**
@@ -104,7 +107,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   char* cmd_args[20];
   _parseCommandLine(cmd_line,cmd_args);
   if (cmd_s.find("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+    return new GetCurrDirCommand(cmd_line,this);
   }
   else if (cmd_s.find("chprompt") == 0){
       return new ChangePromptCommand(cmd_line,cmd_args,this);
@@ -116,7 +119,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ShowPidCommand(cmd_line);
   }
   else if (cmd_s.find("cd") == 0){
-      return new ChangeDirCommand(cmd_line,cmd_args);
+      return new ChangeDirCommand(cmd_line,cmd_args,this);
   }
   else if (cmd_s.find("jobs") == 0){
       return new JobsCommand(cmd_line,jobs_list);
@@ -230,4 +233,62 @@ void ChangePromptCommand::execute() {
 
 void GetCurrDirCommand::execute() {
     cout << smash->getDir() << endl ;
+}
+void ChangeDirCommand::execute() {
+    if (!isInputValid){
+        std::cout<< "smash error: cd: too many arguments"<< std::endl;
+    }
+    else{
+        if(newPath == "-"){
+            if(smash->getDir() == smash->getPrevDir()){
+                cout << "smash error: cd: OLDPWD not set" << endl;
+            }
+            else{
+                int retVal = chdir(smash->getPrevDir());
+                if (!retVal){
+                    perror("smash error: chdir failed");
+                }
+                else{
+                    smash->updateDirs();
+                }
+            }
+        }
+        else if (newPath == ".."){
+            if (smash->getDir() == "/"){
+                return;
+            }
+            char* current = (char*)malloc(sizeof(smash->getDir())+1);
+            goBack(current);
+            int retVal = chdir(current);
+            free(current);
+            if (!retVal){
+                perror("smash error: chdir failed");
+            }
+            else{
+                smash->updateDirs();
+            }
+        }
+        else{
+        int retVal = chdir(newPath);
+            if (!retVal){
+                perror("smash error: chdir failed");
+            }
+            else{
+                smash->updateDirs();
+            }
+        }
+    }
+}
+
+void ShowFilesCommand::execute() {
+    std::set<std::string> content;
+    struct dirent *de;
+    DIR *dr = opendir(smash->getDir());
+    while ((de = readdir(dr)) != NULL){
+        content.insert(de->d_name);
+    }
+    closedir(dr);
+    for (auto j:content ){
+        cout << j << endl;
+    }
 }
