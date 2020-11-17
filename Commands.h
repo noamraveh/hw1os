@@ -9,44 +9,6 @@
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
 
-
-
-class SmallShell {
-private:
-    std::string PrevDir;
-    std::string CurDir;
-    std::string shellName;
-    JobsList* jobs_list{};
-    // TODO: Add your data members
-public:
-    SmallShell(){
-        shellName = "smash";
-        //TODO init firstdir char - empty
-        CurDir =  getcwd(firstdir,200);
-        PrevDir = firstDir;
-    };
-    Command *CreateCommand(const char* cmd_line);
-    SmallShell(SmallShell const &) = delete; // disable copy ctor
-    void operator=(SmallShell const &) = delete; // disable = operator
-    static SmallShell &getInstance() // make SmallShell singleton
-    {
-        static SmallShell instance; // Guaranteed to be destroyed.
-        // Instantiated on first use.
-        return instance;
-    }
-
-    ~SmallShell();
-    std::string getName(){
-        return shellName;
-    }
-    void setName(std::string newName){
-        shellName = newName;
-    }
-    void executeCommand(const char *cmd_line);
-    // TODO: add extra methods as needed
-};
-
-
 class Command {
 // TODO: Add your data members
 public:
@@ -89,23 +51,6 @@ public:
     //void cleanup() override;
 };
 
-class ChangePromptCommand : public BuiltInCommand {
-    std::string newName;
-    SmallShell* smash;
-
-// TODO: Add your data members
-public:
-    ChangePromptCommand(const char *cmdLine, char **plastPwd, SmallShell* smash) : BuiltInCommand(cmdLine), smash(smash) {
-        if (plastPwd[1] == nullptr)
-            newName = "smash";
-        else
-            newName = plastPwd[1];
-    };
-    ~ChangePromptCommand() override = default;
-    void execute() override;
-};
-
-
 class ShowFilesCommand : public BuiltInCommand {
 // TODO: Add your data members
 public:
@@ -122,16 +67,10 @@ class ChangeDirCommand : public BuiltInCommand {
   void execute() override;
 };
 
-class GetCurrDirCommand : public BuiltInCommand {
- public:
-  explicit GetCurrDirCommand(const char* cmd_line):BuiltInCommand(cmd_line){};
-  ~GetCurrDirCommand() override {}
-  void execute() override;
-};
 
 class ShowPidCommand : public BuiltInCommand {
  public:
-  ShowPidCommand(const char* cmd_line):{};
+  ShowPidCommand(const char* cmd_line): BuiltInCommand(cmd_line){};
   virtual ~ShowPidCommand() {}
   void execute() override;
 };
@@ -224,6 +163,63 @@ class BackgroundCommand : public BuiltInCommand {
   BackgroundCommand(const char* cmd_line, JobsList* jobs);
   virtual ~BackgroundCommand() {}
   void execute() override;
+};
+
+
+class SmallShell {
+private:
+    std::string PrevDir;
+    std::string CurDir;
+    std::string shellName;
+    JobsList* jobs_list{};
+    // TODO: Add your data members
+public:
+    SmallShell();
+    Command *CreateCommand(const char* cmd_line);
+    SmallShell(SmallShell const &) = delete; // disable copy ctor
+    void operator=(SmallShell const &) = delete; // disable = operator
+    static SmallShell &getInstance() // make SmallShell singleton
+    {
+        static SmallShell instance; // Guaranteed to be destroyed.
+        // Instantiated on first use.
+        return instance;
+    }
+    ~SmallShell();
+    std::string getName(){
+        return shellName;
+    }
+    void setName(std::string newName){
+        shellName = newName;
+    }
+    std::string getDir(){
+        return CurDir;
+    }
+    void executeCommand(const char *cmd_line);
+    // TODO: add extra methods as needed
+};
+
+class ChangePromptCommand : public BuiltInCommand {
+    std::string newName;
+    SmallShell* smash;
+
+// TODO: Add your data members
+public:
+    ChangePromptCommand(const char *cmdLine, char **plastPwd, SmallShell* smash) : BuiltInCommand(cmdLine), smash(smash) {
+        if (plastPwd[1] == nullptr)
+            newName = "smash";
+        else
+            newName = plastPwd[1];
+    };
+    ~ChangePromptCommand() override = default;
+    void execute() override;
+};
+
+class GetCurrDirCommand : public BuiltInCommand {
+    SmallShell* smash;
+public:
+    explicit GetCurrDirCommand(const char* cmd_line, SmallShell* smash):BuiltInCommand(cmd_line), smash(smash) {};
+    ~GetCurrDirCommand() override {}
+    void execute() override;
 };
 
 // TODO: add more classes if needed 

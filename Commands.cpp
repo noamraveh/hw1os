@@ -86,8 +86,9 @@ void _removeBackgroundSign(char* cmd_line) {
 // TODO: Add your implementation for classes in Commands.h 
 
 SmallShell::SmallShell() {
-    LastWorkingDir = ;//add address of initial dir
-// TODO: add your implementation
+    shellName = "smash";
+    CurDir =  get_current_dir_name();
+    PrevDir = CurDir;
 }
 
 SmallShell::~SmallShell() {
@@ -228,5 +229,5 @@ void ChangePromptCommand::execute() {
 }
 
 void GetCurrDirCommand::execute() {
-    cout << getcwd() << endl ;
+    cout << smash->getDir() << endl ;
 }
