@@ -62,7 +62,7 @@ class ShowPidCommand : public BuiltInCommand {
   void execute() override;
 };
 
-class JobsList;
+//class JobsList;
 class QuitCommand : public BuiltInCommand {
 // TODO: Add your data members
 public:
@@ -91,7 +91,7 @@ class HistoryCommand : public BuiltInCommand {
   virtual ~HistoryCommand() {}
   void execute() override;
 };
-
+/*
 class JobsList {
  public:
   class JobEntry {
@@ -127,7 +127,7 @@ class JobsCommand : public BuiltInCommand {
   virtual ~JobsCommand() {}
   void execute() override;
 };
-
+*/
 class KillCommand : public BuiltInCommand {
  // TODO: Add your data members
  public:
@@ -158,7 +158,7 @@ private:
     char* PrevDir;
     char* CurDir;
     std::string shellName;
-    JobsList* jobs_list{};
+  //  JobsList* jobs_list{};
     // TODO: Add your data members
 public:
     SmallShell();

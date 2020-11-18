@@ -59,7 +59,7 @@ int _parseCommandLine(const char* cmd_line, char** args) {
 
   FUNC_EXIT()
 }
-
+S
 bool _isBackgroundComamnd(const char* cmd_line) {
   const string str(cmd_line);
   return str[str.find_last_not_of(WHITESPACE)] == '&';
@@ -113,7 +113,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangePromptCommand(cmd_line,cmd_args,this);
   }
   else if (cmd_s.find("ls") == 0){
-      return new ShowFilesCommand(cmd_line);
+      return new ShowFilesCommand(cmd_line,this);
   }
   else if (cmd_s.find("showpid") == 0){
       return new ShowPidCommand(cmd_line);
@@ -121,7 +121,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   else if (cmd_s.find("cd") == 0){
       return new ChangeDirCommand(cmd_line,cmd_args,this);
   }
-  else if (cmd_s.find("jobs") == 0){
+  /*else if (cmd_s.find("jobs") == 0){
       return new JobsCommand(cmd_line,jobs_list);
   }
   else if (cmd_s.find("kill") == 0){
@@ -135,7 +135,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   else if (cmd_s.find("quit") == 0){
       return new QuitCommand(cmd_line,jobs_list);
-  }
+  }*/
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -149,7 +149,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
   // cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
-
+/*
 JobsList::JobEntry *JobsList::getLastJob(int *lastJobId) {
     return nullptr;
 }
@@ -222,7 +222,7 @@ JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
     } else
         //error
 }
-
+*/
 void ShowPidCommand::execute() {
     cout << "smash pid is " << getpid() << endl;
 }
