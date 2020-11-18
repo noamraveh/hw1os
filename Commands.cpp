@@ -1,4 +1,3 @@
-#include <unistd.h>
 #include <string.h>
 #include <iostream>
 #include <vector>
@@ -59,7 +58,7 @@ int _parseCommandLine(const char* cmd_line, char** args) {
 
   FUNC_EXIT()
 }
-S
+
 bool _isBackgroundComamnd(const char* cmd_line) {
   const string str(cmd_line);
   return str[str.find_last_not_of(WHITESPACE)] == '&';
@@ -137,7 +136,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new QuitCommand(cmd_line,jobs_list);
   }*/
   else {
-    return new ExternalCommand(cmd_line);
+    return nullptr;
+    //new ExternalCommand(cmd_line);
   }
   return nullptr;
 }
@@ -145,8 +145,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 void SmallShell::executeCommand(const char *cmd_line) {
   // TODO: Add your implementation here
   // for example:
-  // Command* cmd = CreateCommand(cmd_line);
-  // cmd->execute();
+  Command* cmd = CreateCommand(cmd_line);
+   cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
 /*
@@ -239,13 +239,14 @@ void ChangeDirCommand::execute() {
         std::cout<< "smash error: cd: too many arguments"<< std::endl;
     }
     else{
-        if(newPath == "-"){
+        char* dash = "-";
+        if(*newPath == *dash){
             if(smash->getDir() == smash->getPrevDir()){
                 cout << "smash error: cd: OLDPWD not set" << endl;
             }
             else{
                 int retVal = chdir(smash->getPrevDir());
-                if (!retVal){
+                if (retVal != 0){
                     perror("smash error: chdir failed");
                 }
                 else{
@@ -261,7 +262,7 @@ void ChangeDirCommand::execute() {
             goBack(current);
             int retVal = chdir(current);
             free(current);
-            if (!retVal){
+            if (retVal != 0){
                 perror("smash error: chdir failed");
             }
             else{
@@ -270,7 +271,7 @@ void ChangeDirCommand::execute() {
         }
         else{
         int retVal = chdir(newPath);
-            if (!retVal){
+            if (retVal != 0){
                 perror("smash error: chdir failed");
             }
             else{

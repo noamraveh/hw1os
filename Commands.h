@@ -7,6 +7,7 @@
 #include <string>
 #include <set>
 #include <dirent.h>
+#include <unistd.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -14,9 +15,10 @@
 
 class Command {
 // TODO: Add your data members
+    const char* cmd_line;
 public:
-    Command(const char* cmd_line){};
-    virtual ~Command();
+    Command(const char* cmd_line):cmd_line(cmd_line){};
+    virtual ~Command() {};
     virtual void execute() = 0;
     //virtual void prepare();
     //virtual void cleanup();
@@ -25,7 +27,7 @@ public:
 
 class BuiltInCommand : public Command {
 public:
-    BuiltInCommand(const char* cmd_line);
+    BuiltInCommand(const char* cmd_line):Command(cmd_line){};
     virtual ~BuiltInCommand() {}
 };
 
@@ -63,6 +65,7 @@ class ShowPidCommand : public BuiltInCommand {
 };
 
 //class JobsList;
+/*
 class QuitCommand : public BuiltInCommand {
 // TODO: Add your data members
 public:
@@ -83,7 +86,8 @@ class CommandsHistory {
   void addRecord(const char* cmd_line);
   void printHistory();
 };
-
+*/
+/*
 class HistoryCommand : public BuiltInCommand {
  // TODO: Add your data members
  public:
@@ -91,6 +95,7 @@ class HistoryCommand : public BuiltInCommand {
   virtual ~HistoryCommand() {}
   void execute() override;
 };
+ */
 /*
 class JobsList {
  public:
@@ -128,6 +133,7 @@ class JobsCommand : public BuiltInCommand {
   void execute() override;
 };
 */
+/*
 class KillCommand : public BuiltInCommand {
  // TODO: Add your data members
  public:
@@ -152,7 +158,7 @@ class BackgroundCommand : public BuiltInCommand {
   void execute() override;
 };
 
-
+*/
 class SmallShell {
 private:
     char* PrevDir;
