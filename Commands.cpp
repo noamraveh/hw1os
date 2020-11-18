@@ -120,7 +120,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   else if (cmd_s.find("cd") == 0){
       return new ChangeDirCommand(cmd_line,cmd_args,this);
   }
-  /*else if (cmd_s.find("jobs") == 0){
+  else if (cmd_s.find("jobs") == 0){
       return new JobsCommand(cmd_line,jobs_list);
   }
   else if (cmd_s.find("kill") == 0){
@@ -134,7 +134,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   else if (cmd_s.find("quit") == 0){
       return new QuitCommand(cmd_line,jobs_list);
-  }*/
+  }
   else {
     return nullptr;
     //new ExternalCommand(cmd_line);
@@ -149,22 +149,22 @@ void SmallShell::executeCommand(const char *cmd_line) {
    cmd->execute();
   // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
-/*
+
 JobsList::JobEntry *JobsList::getLastJob(int *lastJobId) {
     return nullptr;
 }
 
 void JobsList::addJob(Command *cmd, bool isStopped) {
-
-
+    JobEntry* new_job = new JobEntry(cmd_line)
+    jobsList.insert()
 }
 
 void JobsList::printJobsList() {
     time_t now = time(0); //time when starting print
     for (auto job : jobsList){
-        double timeElapsed = difftime(now,job.startTime);
-        cout << "[" << job.jobId << "] " << job.command.cmdName << " : " << job.processId  << " " << timeElapsed << " secs" ;
-        if (job.isStopped) {
+        double timeElapsed = difftime(now,job.getStartTime());
+        cout << "[" << job.getJobId() << "] " << job.getCmdLine()<< " : " << job.getProcessId()  << " " << timeElapsed << " secs" ;
+        if (job.isStopped()) {
             cout << " (stopped)" << endl;
         } else
             cout << endl;
@@ -176,17 +176,21 @@ void JobsList::killAllJobs() {
 }
 
 void JobsList::removeFinishedJobs() {
-
+    for (auto job:jobsList){
+        if(waitpid(job.getProcessId(),WNOHANG) > 0){
+            jobsList.remove(job);
+        }
+    }
 }
 
 JobsList::JobEntry *JobsList::getJobById(int jobId) {
     auto it = jobsList.begin();
     while (it != jobsList.end()){
-        if (it->jobId == jobId)
+        if (it->getJobId() == jobId)
             return &*it;
         it++;
     }
-    if (it->jobId == jobId)
+    if (it->getJobId() == jobId)
         return &*it;
     else
         //throw error not found
@@ -197,11 +201,11 @@ JobsList::JobEntry *JobsList::getJobById(int jobId) {
 void JobsList::removeJobById(int jobId) {
     auto it = jobsList.begin();
     while (it != jobsList.end()){
-        if (it->jobId == jobId)
+        if (it->getJobId() == jobId)
             jobsList.erase(it);
         it++;
     }
-    if (it->jobId == jobId)
+    if (it->getJobId() == jobId)
         jobsList.erase(it);
     else
     //throw error not found
@@ -210,19 +214,19 @@ void JobsList::removeJobById(int jobId) {
 JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
     auto it = jobsList.end();
     while (it != jobsList.begin()){
-        if (it->isStopped) {
-            *jobId = it->jobId;
+        if (it->isStopped()) {
+            *jobId = it->getJobId();
             return &*it;
         }
         it++;
     }
-    if (it->isStopped){
-        *jobId = it->jobId;
+    if (it->isStopped()){
+        *jobId = it->getJobId();
         return &*it;
     } else
         //error
 }
-*/
+
 void ShowPidCommand::execute() {
     cout << "smash pid is " << getpid() << endl;
 }
@@ -292,4 +296,9 @@ void ShowFilesCommand::execute() {
     for (auto j:content ){
         cout << j << endl;
     }
+}
+
+void JobsCommand::execute() {
+    jobs_list->removeFinishedJobs();
+    jobs_list->printJobsList();
 }
