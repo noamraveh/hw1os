@@ -124,8 +124,8 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new JobsCommand(cmd_line,jobs_list);
   }
   else if (cmd_s.find("kill") == 0){
-      return new KillCommand(cmd_line,jobs_list);
-  }
+      return new KillCommand(cmd_line,cmd_args,jobs_list);
+  }/*
   else if (cmd_s.find("fg") == 0){
       return new ForegroundCommand(cmd_line,jobs_list);
   }
@@ -134,7 +134,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   }
   else if (cmd_s.find("quit") == 0){
       return new QuitCommand(cmd_line,jobs_list);
-  }
+  }*/
   else {
     return nullptr;
     //new ExternalCommand(cmd_line);
@@ -155,76 +155,88 @@ JobsList::JobEntry *JobsList::getLastJob(int *lastJobId) {
 }
 
 void JobsList::addJob(Command *cmd, bool isStopped) {
-    JobEntry* new_job = new JobEntry(cmd_line)
-    jobsList.insert()
+    char* unconstCmdLine = (char*)malloc(sizeof(cmd->getCmdLine()+1));
+    strcpy(unconstCmdLine,cmd->getCmdLine());
+    _removeBackgroundSign(unconstCmdLine);
+    auto new_job = new JobEntry(unconstCmdLine);
+    jobsList.push_back(new_job);
+    numJobs++;
 }
 
 void JobsList::printJobsList() {
     time_t now = time(0); //time when starting print
     for (auto job : jobsList){
-        double timeElapsed = difftime(now,job.getStartTime());
-        cout << "[" << job.getJobId() << "] " << job.getCmdLine()<< " : " << job.getProcessId()  << " " << timeElapsed << " secs" ;
-        if (job.isStopped()) {
-            cout << " (stopped)" << endl;
+        double timeElapsed = difftime(now,job->getStartTime());
+        cout << "[" << job->getJobId() << "] " << job->getCmdLine();
+        if (job->isStopped()) {
+            cout << " : " << job->getProcessId()  << " " << timeElapsed << " secs (stopped)" << endl;
         } else
-            cout << endl;
+            cout<< "& : " << job->getProcessId()  << " " << timeElapsed << " secs" << endl;
     }
 }
 
 void JobsList::killAllJobs() {
+    for (auto job: jobsList){
+        cout << job->getProcessId() << ": " << job->getCmdLine();
+        if (!job->isStopped()){
+            cout << "&";
+        }
+        cout<<endl;
+        kill(job->getProcessId(),SIGKILL);
+    }
     jobsList.clear();
 }
 
 void JobsList::removeFinishedJobs() {
     for (auto job:jobsList){
-        if(waitpid(job.getProcessId(),WNOHANG) > 0){
+        if(waitpid(job->getProcessId(),nullptr,WNOHANG) > 0){
             jobsList.remove(job);
+            numJobs--;
         }
     }
 }
 
 JobsList::JobEntry *JobsList::getJobById(int jobId) {
-    auto it = jobsList.begin();
-    while (it != jobsList.end()){
-        if (it->getJobId() == jobId)
-            return &*it;
-        it++;
+    for(auto job: jobsList) {
+        if (job->getJobId() == jobId) {
+            return job; // TODO: throw error if not found
+        }
     }
-    if (it->getJobId() == jobId)
-        return &*it;
-    else
-        //throw error not found
-
-
 }
 
 void JobsList::removeJobById(int jobId) {
-    auto it = jobsList.begin();
-    while (it != jobsList.end()){
-        if (it->getJobId() == jobId)
-            jobsList.erase(it);
-        it++;
+
+    for(auto job: jobsList){
+        if (job->getJobId() == jobId){
+            jobsList.remove(job);
+            numJobs--;
+            return;
+        }
     }
-    if (it->getJobId() == jobId)
-        jobsList.erase(it);
-    else
-    //throw error not found
+    return; //TODO: throw error not found
 }
 
 JobsList::JobEntry *JobsList::getLastStoppedJob(int *jobId) {
-    auto it = jobsList.end();
-    while (it != jobsList.begin()){
-        if (it->isStopped()) {
-            *jobId = it->getJobId();
-            return &*it;
+    JobEntry *foundJob = nullptr;
+    for (auto job : jobsList) {
+        if (job->isStopped()) {
+            *jobId = job->getJobId();
+            foundJob = job;
         }
-        it++;
     }
-    if (it->isStopped()){
-        *jobId = it->getJobId();
-        return &*it;
-    } else
-        //error
+    if (!foundJob) {
+        *jobId = -1;
+    }
+    return foundJob;
+}
+
+int JobsList::getPid(int jobId) {
+    for (auto job: jobsList){
+        if(job->getJobId() == jobId){
+            return job->getProcessId();
+        }
+    }
+    return -1;
 }
 
 void ShowPidCommand::execute() {
@@ -299,6 +311,100 @@ void ShowFilesCommand::execute() {
 }
 
 void JobsCommand::execute() {
+    if(!jobs_list){
+        return;
+    }
     jobs_list->removeFinishedJobs();
     jobs_list->printJobsList();
 }
+
+void KillCommand::execute() {
+    int pid = jobs_list->getPid(jobId);
+    if (!validInput){
+        cout<<"smash error: kill: invalid arguments"<<endl;
+        return;
+    }
+    else if (pid == -1){
+        cout<<"smash error: kill: job-id " << jobId << " does not exist"<<endl;
+        return;
+    }
+    else{
+        int retVal = kill(pid,sigNum);
+        if (retVal != 0){
+            perror("smash error: kill failed");
+        }
+        else{
+            cout<< "signal number " << sigNum << " was sent to pid " << pid <<endl;
+        }
+    }
+}
+
+void ForegroundCommand::execute() {
+    if(noArgs){
+        if(jobs_list->isEmpty()){
+            cout<< "smash error: fg: jobs list is empty" << endl;
+        }
+        else{
+            int pid = jobs_list->getMaxJob()->getProcessId();
+            cout<< getCmdLine() << " : "<< pid << endl;
+            kill(pid,SIGCONT);
+            waitpid(pid,nullptr, 0);
+            jobs_list->removeJobById(jobId);
+        }
+    }
+    else if (tooManyArgs){
+        cout <<"smash error: fg: invalid arguments" << endl;
+    }
+    else{
+        int pid = jobs_list->getPid(jobId);
+        if( pid == -1){
+            cout<<"smash error: fg: job-id " << jobId << " does not exist"<<endl;
+        }
+        else{
+            cout<< getCmdLine() << " : "<< pid << endl;
+            kill(pid,SIGCONT);
+            waitpid(pid,nullptr, 0);
+            jobs_list->removeJobById(jobId);
+        }
+    }
+}
+
+void BackgroundCommand::execute() {
+    if(noArgs) {
+        int lastStoppedId;
+        if (!jobs_list->getLastStoppedJob(&lastStoppedId)) {
+            cout << "smash error: bg: there is no stopped job to resume" << endl;
+        } else {
+            int pid = jobs_list->getJobById(lastStoppedId)->getProcessId();
+            cout << getCmdLine() << " : " << pid << endl;
+            kill(pid, SIGCONT);
+            jobs_list->resumeJob(jobId); //TODO: maybe add &
+        }
+    }
+    else if (tooManyArgs){
+        cout <<"smash error: bg: invalid arguments" << endl;
+    }
+    else {
+        int pid = jobs_list->getPid(jobId);
+        if (pid == -1) {
+            cout << "smash error: bg: job-id " << jobId << " does not exist" << endl;
+        }
+        else if (!jobs_list->getJobById(jobId)->isStopped()){
+            cout << "smash error: bg: job-id " << jobId << " is already running in the background" << endl;
+        }
+        else {
+            cout << getCmdLine() << " : " << pid << endl;
+            kill(pid, SIGCONT);
+            jobs_list->resumeJob(jobId); //TODO: maybe add &
+        }
+    }
+}
+
+void QuitCommand::execute() {
+    if (kill){
+        cout<< "sending SIGKILL signal to "<< jobs_list->getNumJobs() << "jobs:"<<endl;
+        jobs_list->killAllJobs();
+        }
+    exit(0);
+}
+

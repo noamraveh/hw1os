@@ -22,6 +22,9 @@ public:
     virtual void execute() = 0;
     //virtual void prepare();
     //virtual void cleanup();
+    const char* getCmdLine(){
+        return cmd_line;
+    }
     // TODO: Add your extra methods if needed
 };
 
@@ -64,16 +67,6 @@ class ShowPidCommand : public BuiltInCommand {
   void execute() override;
 };
 
-//class JobsList;
-/*
-class QuitCommand : public BuiltInCommand {
-// TODO: Add your data members
-public:
-  QuitCommand(const char* cmd_line, JobsList* jobs);
-  virtual ~QuitCommand() {}
-  void execute() override;
-};
-
 class CommandsHistory {
  protected:
   class CommandHistoryEntry {
@@ -86,7 +79,7 @@ class CommandsHistory {
   void addRecord(const char* cmd_line);
   void printHistory();
 };
-*/
+
 /*
 class HistoryCommand : public BuiltInCommand {
  // TODO: Add your data members
@@ -98,7 +91,6 @@ class HistoryCommand : public BuiltInCommand {
  */
 
 class JobsList {
- public:
   class JobEntry {
       int jobId;
       char* cmd_line;
@@ -106,7 +98,7 @@ class JobsList {
       time_t startTime;
       bool stopped;
   public:
-      JobEntry();
+      JobEntry(char* cmd_line):cmd_line(cmd_line){};
       ~JobEntry(){}
       time_t getStartTime(){
           return startTime;
@@ -114,7 +106,7 @@ class JobsList {
       int getJobId(){
           return jobId;
       }
-      char* getCmdLine(){
+      const char* getCmdLine(){
           return cmd_line;
       }
       int getProcessId(){
@@ -123,15 +115,19 @@ class JobsList {
       bool isStopped(){
           return stopped;
       }
+      void changeIsStopped(bool status){
+          stopped = status;
+      }
 
    // TODO: Add your data members
   };
-  std::list<JobEntry> jobsList;
-  int maxJobId=1;
- // TODO: Add your data members
+  std::list<JobEntry*> jobsList;
+  int maxJobId;
+  int numJobs;
+    // TODO: Add your data members
  public:
-  JobsList();
-  ~JobsList();
+  JobsList(): maxJobId(1), numJobs(0){};
+  ~JobsList(){};
   void addJob(Command* cmd, bool stopped = false);
   void printJobsList();
   void killAllJobs();
@@ -140,8 +136,20 @@ class JobsList {
   void removeJobById(int jobId);
   JobEntry * getLastJob(int* lastJobId);
   JobEntry *getLastStoppedJob(int *jobId);
-  void deleteFinishedJobs();
-  // TODO: Add extra methods or modify exisitng ones as needed
+  int getPid(int jobId);
+  bool isEmpty(){
+      return jobsList.empty();
+  }
+  JobEntry* getMaxJob(){
+      return *(&*jobsList.end());
+  }
+  void resumeJob(int jobId){
+      getJobById(jobId)->changeIsStopped(false);
+  }
+  int getNumJobs(){
+      return numJobs;
+  }
+  // TODO: Add extra methods or modify existing ones as needed
 };
 
 class SmallShell {
@@ -242,34 +250,96 @@ public:
     void execute() override;
 };
 
-/*
+
 class KillCommand : public BuiltInCommand {
- // TODO: Add your data members
+    JobsList* jobs_list;
+    int sigNum;
+    int jobId;
+    bool validInput;
  public:
-  KillCommand(const char* cmd_line, JobsList* jobs);
+  KillCommand(const char* cmd_line,char** plastPwd, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), validInput(true){
+      if (!plastPwd[1]){
+          validInput = false;
+          return;
+      }
+      else{
+          sigNum = *plastPwd[1]; //TODO: cut the "-" in the beginning
+          if (!plastPwd[2]){
+              validInput = false;
+              return;
+          }
+          else{
+              jobId = *plastPwd[2];
+              if(plastPwd[3] != nullptr){
+                  validInput = false;
+             }
+          }
+      }
+
+  };
+
   virtual ~KillCommand() {}
   void execute() override;
 };
-
 class ForegroundCommand : public BuiltInCommand {
- // TODO: Add your data members
- public:
-  ForegroundCommand(const char* cmd_line, JobsList* jobs);
-  virtual ~ForegroundCommand() {}
-  void execute() override;
+    JobsList* jobs_list;
+    int jobId;
+    bool tooManyArgs;
+    bool noArgs;
+public:
+    ForegroundCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs), tooManyArgs(false),noArgs(false){
+        if (!plastPwd[1]){
+            noArgs = true;
+            return;
+        }
+        else {
+            jobId = (int)*plastPwd[1]; //TODO: cut the "-" in the beginning
+            if (plastPwd[2] != nullptr) {
+                tooManyArgs = true;
+            }
+        }
+    };
+    virtual ~ForegroundCommand() {}
+    void execute() override;
 };
 
 class BackgroundCommand : public BuiltInCommand {
- // TODO: Add your data members
+    JobsList* jobs_list;
+    int jobId;
+    bool tooManyArgs;
+    bool noArgs;
  public:
-  BackgroundCommand(const char* cmd_line, JobsList* jobs);
+  BackgroundCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs), tooManyArgs(false),noArgs(false){
+      if (!plastPwd[1]){
+          noArgs = true;
+          return;
+      }
+      else {
+          jobId = (int)*plastPwd[1]; //TODO: cut the "-" in the beginning
+          if (plastPwd[2] != nullptr) {
+              tooManyArgs = true;
+          }
+      }
+  };
   virtual ~BackgroundCommand() {}
   void execute() override;
 };
 
-
+class QuitCommand : public BuiltInCommand {
+    JobsList* jobs_list;
+    bool kill;
+public:
+    QuitCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs) ,kill(false){
+        if  (plastPwd[1] == "kill"){
+            kill = true;
+        }
+    }
+    virtual ~QuitCommand() {}
+    void execute() override;
+};
+/*
 // TODO: add more classes if needed 
 // maybe ls, timeout ?
-
+*/
 
 #endif //SMASH_COMMAND_H_
