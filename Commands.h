@@ -14,7 +14,7 @@
 #define HISTORY_MAX_RECORDS (50)
 
 class Command {
-// TODO: Add your data members
+private:
     const char* cmd_line;
 public:
     Command(const char* cmd_line):cmd_line(cmd_line){};
@@ -58,15 +58,7 @@ public:
     //void prepare() override;
     //void cleanup() override;
 };
-
-
-class ShowPidCommand : public BuiltInCommand {
- public:
-  ShowPidCommand(const char* cmd_line): BuiltInCommand(cmd_line){};
-  virtual ~ShowPidCommand() {}
-  void execute() override;
-};
-
+/*
 class CommandsHistory {
  protected:
   class CommandHistoryEntry {
@@ -80,7 +72,7 @@ class CommandsHistory {
   void printHistory();
 };
 
-/*
+
 class HistoryCommand : public BuiltInCommand {
  // TODO: Add your data members
  public:
@@ -88,29 +80,30 @@ class HistoryCommand : public BuiltInCommand {
   virtual ~HistoryCommand() {}
   void execute() override;
 };
- */
+*/
 
 class JobsList {
+private:
   class JobEntry {
-      int jobId;
+      int job_id;
       char* cmd_line;
-      int processId;
-      time_t startTime;
+      int process_id;
+      time_t start_time;
       bool stopped;
   public:
       JobEntry(char* cmd_line):cmd_line(cmd_line){};
       ~JobEntry(){}
       time_t getStartTime(){
-          return startTime;
+          return start_time;
       }
       int getJobId(){
-          return jobId;
+          return job_id;
       }
       const char* getCmdLine(){
           return cmd_line;
       }
       int getProcessId(){
-          return processId;
+          return process_id;
       }
       bool isStopped(){
           return stopped;
@@ -121,89 +114,75 @@ class JobsList {
 
    // TODO: Add your data members
   };
-  std::list<JobEntry*> jobsList;
-  int maxJobId;
-  int numJobs;
+  std::list<JobEntry*> jobs_list;
+  int max_job_id;
+  int num_jobs;
     // TODO: Add your data members
  public:
-  JobsList(): maxJobId(1), numJobs(0){};
+  JobsList(): max_job_id(1), num_jobs(0){};
   ~JobsList(){};
   void addJob(Command* cmd, bool stopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
-  JobEntry * getJobById(int jobId);
-  void removeJobById(int jobId);
-  JobEntry * getLastJob(int* lastJobId);
-  JobEntry *getLastStoppedJob(int *jobId);
-  int getPid(int jobId);
-  bool isEmpty(){
-      return jobsList.empty();
-  }
+  JobEntry * getJobById(int job_id);
+  void removeJobById(int job_id);
+  JobEntry * getLastJob(int* last_job_id); // TODO:do we need it??
+  JobEntry *getLastStoppedJob(int *job_id);
+  int getPid(int job_id);
+  bool isEmpty();
   JobEntry* getMaxJob(){
-      return *(&*jobsList.end());
+      return *(&*jobs_list.end());
   }
-  void resumeJob(int jobId){
-      getJobById(jobId)->changeIsStopped(false);
-  }
-  int getNumJobs(){
-      return numJobs;
-  }
-  // TODO: Add extra methods or modify existing ones as needed
+  void resumeJob(int job_id);
+  int getNumJobs();
 };
 
 class SmallShell {
 private:
-    char* PrevDir;
-    char* CurDir;
-    std::string shellName;
-    JobsList* jobs_list{};
+    char* prev_dir;
+    char* cur_dir;
+    std::string shell_name;
+    JobsList* jobs_list;
     // TODO: Add your data members
 public:
-    SmallShell();
-    Command *CreateCommand(const char* cmd_line);
+    SmallShell():shell_name("smash"){
+        cur_dir =  get_current_dir_name();
+        prev_dir = get_current_dir_name();
+    };
+    ~SmallShell();
     SmallShell(SmallShell const &) = delete; // disable copy ctor
     void operator=(SmallShell const &) = delete; // disable = operator
+    std::string getName();
+    void setName(std::string new_name);
+    char* getDir();
+    char* getPrevDir();
+    void updateDirs();
+    Command *CreateCommand(const char* cmd_line);
+    void executeCommand(const char *cmd_line);
     static SmallShell &getInstance() // make SmallShell singleton
     {
         static SmallShell instance; // Guaranteed to be destroyed.
         // Instantiated on first use.
         return instance;
     }
-    ~SmallShell();
-    std::string getName(){
-        return shellName;
-    }
-    void setName(std::string newName){
-        shellName = newName;
-    }
-    char* getDir(){
-        return CurDir;
-    }
-    char* getPrevDir(){
-        return PrevDir;
-    }
-    void updateDirs(){
-        free(PrevDir);
-        PrevDir = CurDir;
-        CurDir = get_current_dir_name();
-    }
-
-    void executeCommand(const char *cmd_line);
-    // TODO: add extra methods as needed
 };
 
-class ChangePromptCommand : public BuiltInCommand {
-    std::string newName;
-    SmallShell* smash;
-
-// TODO: Add your data members
+class ShowPidCommand : public BuiltInCommand {
 public:
-    ChangePromptCommand(const char *cmdLine, char **plastPwd, SmallShell* smash) : BuiltInCommand(cmdLine), smash(smash) {
-        if (plastPwd[1] == nullptr)
-            newName = "smash";
+    ShowPidCommand(const char* cmd_line): BuiltInCommand(cmd_line){};
+    virtual ~ShowPidCommand() {}
+    void execute() override;
+};
+class ChangePromptCommand : public BuiltInCommand {
+    std::string new_name;
+    SmallShell* smash;
+public:
+    ChangePromptCommand(const char *cmd_line, char **plast_pwd, SmallShell* smash) : BuiltInCommand(cmd_line), smash(smash) {
+        if (plast_pwd[1] == nullptr)
+            new_name = "smash";
         else
-            newName = plastPwd[1];
+            new_name = plast_pwd[1];
     };
     ~ChangePromptCommand() override = default;
     void execute() override;
@@ -216,18 +195,18 @@ public:
     ~GetCurrDirCommand() override {}
     void execute() override;
 };
+
 class ChangeDirCommand : public BuiltInCommand {
-// TODO: Add your data members
     SmallShell* smash;
-    char* newPath;
-    bool isInputValid;
+    char* new_path;
+    bool valid_input;
 public:
-    ChangeDirCommand(const char* cmd_line, char** plastPwd, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash), newPath(nullptr),isInputValid(true){
+    ChangeDirCommand(const char* cmd_line, char** plastPwd, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash), new_path(nullptr),valid_input(true){
         if(plastPwd[2]!= nullptr){
-            isInputValid = false;
+            valid_input = false;
         }
         else{
-            newPath = plastPwd[1];
+            new_path = plastPwd[1];
         }
     } ;
     virtual ~ChangeDirCommand() {}
@@ -250,52 +229,51 @@ public:
     void execute() override;
 };
 
-
 class KillCommand : public BuiltInCommand {
     JobsList* jobs_list;
-    int sigNum;
-    int jobId;
-    bool validInput;
+    int sig_num;
+    int job_id;
+    bool valid_input;
  public:
-  KillCommand(const char* cmd_line,char** plastPwd, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), validInput(true){
-      if (!plastPwd[1]){
-          validInput = false;
+  KillCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), valid_input(true){
+      if (!plast_pwd[1]){
+          valid_input = false;
           return;
       }
       else{
-          sigNum = *plastPwd[1]; //TODO: cut the "-" in the beginning
-          if (!plastPwd[2]){
-              validInput = false;
+          sig_num = *plast_pwd[1]; //TODO: cut the "-" in the beginning
+          if (!plast_pwd[2]){
+              valid_input = false;
               return;
           }
           else{
-              jobId = *plastPwd[2];
-              if(plastPwd[3] != nullptr){
-                  validInput = false;
+              job_id = *plast_pwd[2];
+              if(plast_pwd[3] != nullptr){
+                  valid_input = false;
              }
           }
       }
-
   };
 
   virtual ~KillCommand() {}
   void execute() override;
 };
+
 class ForegroundCommand : public BuiltInCommand {
     JobsList* jobs_list;
-    int jobId;
-    bool tooManyArgs;
-    bool noArgs;
+    int job_id;
+    bool too_many_args;
+    bool no_args;
 public:
-    ForegroundCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs), tooManyArgs(false),noArgs(false){
-        if (!plastPwd[1]){
-            noArgs = true;
+    ForegroundCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
+        if (!plast_pwd[1]){
+            no_args = true;
             return;
         }
         else {
-            jobId = (int)*plastPwd[1]; //TODO: cut the "-" in the beginning
-            if (plastPwd[2] != nullptr) {
-                tooManyArgs = true;
+            job_id = (int)*plast_pwd[1]; //TODO: cut the "-" in the beginning
+            if (plast_pwd[2] != nullptr) {
+                too_many_args = true;
             }
         }
     };
@@ -305,22 +283,22 @@ public:
 
 class BackgroundCommand : public BuiltInCommand {
     JobsList* jobs_list;
-    int jobId;
-    bool tooManyArgs;
-    bool noArgs;
+    int job_id;
+    bool too_many_args ;
+    bool no_args;
  public:
-  BackgroundCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs), tooManyArgs(false),noArgs(false){
-      if (!plastPwd[1]){
-          noArgs = true;
+  BackgroundCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
+      if (!plast_pwd[1]){
+          no_args = true;
           return;
       }
       else {
-          jobId = (int)*plastPwd[1]; //TODO: cut the "-" in the beginning
-          if (plastPwd[2] != nullptr) {
-              tooManyArgs = true;
+          job_id = (int)*plast_pwd[1]; //TODO: cut the "-" in the beginning
+          if (plast_pwd[2] != nullptr) {
+              too_many_args = true;
           }
       }
-  };
+  }
   virtual ~BackgroundCommand() {}
   void execute() override;
 };
@@ -329,8 +307,8 @@ class QuitCommand : public BuiltInCommand {
     JobsList* jobs_list;
     bool kill;
 public:
-    QuitCommand(const char* cmd_line,char** plastPwd, JobsList* jobs): BuiltInCommand(cmd_line), jobs_list(jobs) ,kill(false){
-        if  (plastPwd[1] == "kill"){
+    QuitCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list) ,kill(false){
+        if  (plast_pwd[1] == "kill"){
             kill = true;
         }
     }
