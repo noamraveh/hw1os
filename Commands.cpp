@@ -114,7 +114,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
   string cmd_s = string(cmd_line);
   char* cmd_args[20];
-  _parseCommandLine(cmd_line,cmd_args); //TODO: if its a built in command we need to remove the & from the arguments sent to the function
+  _parseCommandLine(cmd_line,cmd_args);
   if (cmd_s.find("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line,this);
   }
@@ -186,7 +186,9 @@ void JobsList::killAllJobs() {
             cout << "&";
         }
         cout<<endl;
-        kill(job->getProcessId(),SIGKILL);
+        int ret_val = kill(job->getProcessId(),SIGKILL);
+        if(ret_val != 0)
+            perror("smash error: kill failed");
     }
     jobs_list.clear();
 }
@@ -318,15 +320,20 @@ void ChangeDirCommand::execute() {
 }
 
 void ShowFilesCommand::execute() {
-    std::set<std::string> content;
-    struct dirent *de;
-    DIR *dr = opendir(smash->getDir());
-    while ((de = readdir(dr)) != nullptr){
-        content.insert(de->d_name);
-    }
-    closedir(dr);
-    for (auto j:content ){
-        cout << j << endl;
+
+    struct dirent **namelist;
+    int n;
+    int i = 0;
+    n = scandir(".", &namelist, NULL, alphasort);
+    if (n < 0)
+        perror("smash error:scandir failed");
+    else {
+        while (i < n) {
+            printf("%s\n", namelist[i]->d_name);
+            free(namelist[i]);
+            ++i;
+        }
+        free(namelist);
     }
 }
 

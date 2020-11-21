@@ -85,7 +85,7 @@ class HistoryCommand : public BuiltInCommand {
 class JobsList {
 private:
   class JobEntry {
-      int job_id;
+      int job_id; //TODO: keep the ID even if moved to fg and then back to bg
       char* cmd_line;
       int process_id;
       time_t start_time;
