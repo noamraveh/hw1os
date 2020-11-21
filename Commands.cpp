@@ -114,7 +114,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
 
   string cmd_s = string(cmd_line);
   char* cmd_args[20];
-  _parseCommandLine(cmd_line,cmd_args);
+  _parseCommandLine(cmd_line,cmd_args); //TODO: if its a built in command we need to remove the & from the arguments sent to the function
   if (cmd_s.find("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line,this);
   }
@@ -268,7 +268,10 @@ void GetCurrDirCommand::execute() {
 }
 
 void ChangeDirCommand::execute() {
-    if (!valid_input){
+    if(no_args){
+        return;
+    }
+    if (too_many_args){
         std::cout<< "smash error: cd: too many arguments"<< std::endl;
     }
     else{

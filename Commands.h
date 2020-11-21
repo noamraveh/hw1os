@@ -178,11 +178,11 @@ class ChangePromptCommand : public BuiltInCommand {
     std::string new_name;
     SmallShell* smash;
 public:
-    ChangePromptCommand(const char *cmd_line, char **plast_pwd, SmallShell* smash) : BuiltInCommand(cmd_line), smash(smash) {
-        if (plast_pwd[1] == nullptr)
+    ChangePromptCommand(const char *cmd_line, char **cmd_args, SmallShell* smash) : BuiltInCommand(cmd_line), smash(smash) {
+        if (cmd_args[1] == nullptr)
             new_name = "smash";
         else
-            new_name = plast_pwd[1];
+            new_name = cmd_args[1];
     };
     ~ChangePromptCommand() override = default;
     void execute() override;
@@ -199,14 +199,18 @@ public:
 class ChangeDirCommand : public BuiltInCommand {
     SmallShell* smash;
     char* new_path;
-    bool valid_input;
+    bool too_many_args;
+    bool no_args;
 public:
-    ChangeDirCommand(const char* cmd_line, char** plastPwd, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash), new_path(nullptr),valid_input(true){
-        if(plastPwd[2]!= nullptr){
-            valid_input = false;
+    ChangeDirCommand(const char* cmd_line, char** cmd_args, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash), new_path(nullptr),too_many_args(false),no_args(false){
+        if (cmd_args[1] == nullptr){
+            no_args = true;
+        }
+        if(cmd_args[2]!= nullptr){
+            too_many_args = true;
         }
         else{
-            new_path = plastPwd[1];
+            new_path = cmd_args[1];
         }
     } ;
     virtual ~ChangeDirCommand() {}
@@ -235,20 +239,20 @@ class KillCommand : public BuiltInCommand {
     int job_id;
     bool valid_input;
  public:
-  KillCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), valid_input(true){
-      if (!plast_pwd[1]){
+  KillCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), valid_input(true){
+      if (!cmd_args[1]){
           valid_input = false;
           return;
       }
       else{
-          sig_num = *plast_pwd[1]; //TODO: cut the "-" in the beginning
-          if (!plast_pwd[2]){
+          sig_num = *cmd_args[1]; //TODO: cut the "-" in the beginning
+          if (!cmd_args[2]){
               valid_input = false;
               return;
           }
           else{
-              job_id = *plast_pwd[2];
-              if(plast_pwd[3] != nullptr){
+              job_id = *cmd_args[2];
+              if(cmd_args[3] != nullptr){
                   valid_input = false;
              }
           }
@@ -265,14 +269,14 @@ class ForegroundCommand : public BuiltInCommand {
     bool too_many_args;
     bool no_args;
 public:
-    ForegroundCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
-        if (!plast_pwd[1]){
+    ForegroundCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
+        if (!cmd_args[1]){
             no_args = true;
             return;
         }
         else {
-            job_id = (int)*plast_pwd[1]; //TODO: cut the "-" in the beginning
-            if (plast_pwd[2] != nullptr) {
+            job_id = (int)*cmd_args[1]; //TODO: cut the "-" in the beginning
+            if (cmd_args[2] != nullptr) {
                 too_many_args = true;
             }
         }
@@ -287,14 +291,14 @@ class BackgroundCommand : public BuiltInCommand {
     bool too_many_args ;
     bool no_args;
  public:
-  BackgroundCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
-      if (!plast_pwd[1]){
+  BackgroundCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
+      if (!cmd_args[1]){
           no_args = true;
           return;
       }
       else {
-          job_id = (int)*plast_pwd[1]; //TODO: cut the "-" in the beginning
-          if (plast_pwd[2] != nullptr) {
+          job_id = (int)*cmd_args[1]; //TODO: cut the "-" in the beginning
+          if (cmd_args[2] != nullptr) {
               too_many_args = true;
           }
       }
@@ -307,8 +311,8 @@ class QuitCommand : public BuiltInCommand {
     JobsList* jobs_list;
     bool kill;
 public:
-    QuitCommand(const char* cmd_line,char** plast_pwd, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list) ,kill(false){
-        if  (plast_pwd[1] == "kill"){
+    QuitCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list) ,kill(false){
+        if  (cmd_args[1] == "kill"){
             kill = true;
         }
     }
