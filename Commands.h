@@ -127,12 +127,11 @@ private:
   JobEntry *getLastStoppedJob(int *job_id);
   int getPid(int job_id);
   bool isEmpty();
-  JobEntry* getMaxJob(){
-      std::cout<< jobs_list.size() << std::endl;
+  int getMaxJob(){
       if (jobs_list.size() == 0){
-          return nullptr;
+          return 0;
       }
-      return *(&*jobs_list.end());
+      return jobs_list.back()->getJobId();
   }
   void resumeJob(int job_id);
   int getNumJobs();

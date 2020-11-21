@@ -159,14 +159,7 @@ void JobsList::addJob(Command *cmd,pid_t pid, bool is_stopped) {
     char* un_const_cmd_line = (char*)malloc(sizeof(cmd->getCmdLine()+1));
     strcpy(un_const_cmd_line,cmd->getCmdLine());
     _removeBackgroundSign(un_const_cmd_line);
-    int max_job_id;
-    if (getMaxJob() == nullptr){
-        max_job_id=0;
-    }
-    else{
-        max_job_id = getMaxJob()->getJobId();
-    }
-    auto new_job = new JobEntry(un_const_cmd_line,max_job_id+1, pid, false);
+    auto new_job = new JobEntry(un_const_cmd_line,getMaxJob()+1, pid, false);
     jobs_list.push_back(new_job);
     num_jobs++;
 }
@@ -376,7 +369,7 @@ void ForegroundCommand::execute() {
             cout<< "smash error: fg: jobs list is empty" << endl;
         }
         else{
-            int pid = jobs_list->getMaxJob()->getProcessId();
+            int pid = jobs_list->getMaxJob();
             cout<< getCmdLine() << " : "<< pid << endl;
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
@@ -444,9 +437,9 @@ void ExternalCommand::execute() {
     strcpy(un_const_cmd_line,cmd_line);
     char arg0[] = "/bin/bash";
     char arg1[] = "-c";
+    _removeBackgroundSign(un_const_cmd_line);
     char* args[] = {arg0,arg1,un_const_cmd_line,nullptr};
     pid_t child_pid = fork();
-    cout<< child_pid<<endl;
     if (child_pid == -1){
         perror("smash error: fork failed");
     }
@@ -458,10 +451,12 @@ void ExternalCommand::execute() {
         if (diff){
             jobs_list->addJob(this,child_pid,false);
         }
-        wait(nullptr);
+        if(!_isBackgroundCommand(cmd_line)){
+            wait(nullptr);
+        }
     }
     else{
-       // setpgrp()
+        setpgrp();
         execv("/bin/bash",args);
 
     }
