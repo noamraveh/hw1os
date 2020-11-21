@@ -146,23 +146,27 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new QuitCommand(cmd_line,cmd_args,jobs_list);
   }
   else {
-    //new ExternalCommand(cmd_line); //TODO:External command
+      return new ExternalCommand(cmd_line,jobs_list); //TODO:External command
   }
-  return nullptr;
 }
 
 void SmallShell::executeCommand(const char *cmd_line) {
   Command* cmd = CreateCommand(cmd_line);
    cmd->execute();
-    // TODO: External and special commands
-    // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
 
-void JobsList::addJob(Command *cmd, bool is_stopped) {
+void JobsList::addJob(Command *cmd,pid_t pid, bool is_stopped) {
     char* un_const_cmd_line = (char*)malloc(sizeof(cmd->getCmdLine()+1));
     strcpy(un_const_cmd_line,cmd->getCmdLine());
     _removeBackgroundSign(un_const_cmd_line);
-    auto new_job = new JobEntry(un_const_cmd_line);
+    int max_job_id;
+    if (getMaxJob() == nullptr){
+        max_job_id=0;
+    }
+    else{
+        max_job_id = getMaxJob()->getJobId();
+    }
+    auto new_job = new JobEntry(un_const_cmd_line,max_job_id+1, pid, false);
     jobs_list.push_back(new_job);
     num_jobs++;
 }
@@ -435,3 +439,31 @@ void QuitCommand::execute() {
     exit(0);
 }
 
+void ExternalCommand::execute() {
+    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line+1));
+    strcpy(un_const_cmd_line,cmd_line);
+    char arg0[] = "/bin/bash";
+    char arg1[] = "-c";
+    char* args[] = {arg0,arg1,un_const_cmd_line,nullptr};
+    pid_t child_pid = fork();
+    cout<< child_pid<<endl;
+    if (child_pid == -1){
+        perror("smash error: fork failed");
+    }
+    else if(child_pid > 0){
+        char* modified_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+        strcpy(modified_cmd_line,cmd_line);
+        _removeBackgroundSign(modified_cmd_line);
+        int diff = strcmp(cmd_line,modified_cmd_line);
+        if (diff){
+            jobs_list->addJob(this,child_pid,false);
+        }
+        wait(nullptr);
+    }
+    else{
+       // setpgrp()
+        execv("/bin/bash",args);
+
+    }
+
+}

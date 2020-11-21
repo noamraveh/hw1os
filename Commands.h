@@ -34,12 +34,7 @@ public:
     virtual ~BuiltInCommand() {}
 };
 
-class ExternalCommand : public Command {
-public:
-    ExternalCommand(const char* cmd_line);
-    virtual ~ExternalCommand() {}
-    void execute() override;
-};
+
 
 class PipeCommand : public Command {
     // TODO: Add your data members
@@ -91,7 +86,9 @@ private:
       time_t start_time;
       bool stopped;
   public:
-      JobEntry(char* cmd_line):cmd_line(cmd_line){};
+      JobEntry(char* cmd_line,int id,int pid, bool stopped):cmd_line(cmd_line),job_id(id),process_id(pid), stopped(stopped){
+          start_time = time(nullptr);
+      };
       ~JobEntry(){}
       time_t getStartTime(){
           return start_time;
@@ -115,13 +112,12 @@ private:
    // TODO: Add your data members
   };
   std::list<JobEntry*> jobs_list;
-  int max_job_id;
   int num_jobs;
     // TODO: Add your data members
  public:
-  JobsList(): max_job_id(1), num_jobs(0){};
+  JobsList(): num_jobs(0){};
   ~JobsList(){};
-  void addJob(Command* cmd, bool stopped = false);
+  void addJob(Command* cmd,pid_t pid, bool stopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
@@ -132,6 +128,10 @@ private:
   int getPid(int job_id);
   bool isEmpty();
   JobEntry* getMaxJob(){
+      std::cout<< jobs_list.size() << std::endl;
+      if (jobs_list.size() == 0){
+          return nullptr;
+      }
       return *(&*jobs_list.end());
   }
   void resumeJob(int job_id);
@@ -146,9 +146,10 @@ private:
     JobsList* jobs_list;
     // TODO: Add your data members
 public:
-    SmallShell():shell_name("smash"){
+    SmallShell():jobs_list(new JobsList),shell_name("smash"){
         cur_dir =  get_current_dir_name();
         prev_dir = get_current_dir_name();
+
     };
     ~SmallShell();
     SmallShell(SmallShell const &) = delete; // disable copy ctor
@@ -317,6 +318,15 @@ public:
         }
     }
     virtual ~QuitCommand() {}
+    void execute() override;
+};
+
+class ExternalCommand : public Command {
+    const char* cmd_line;
+    JobsList* jobs_list;
+public:
+    explicit ExternalCommand(const char* cmd_line,JobsList* jobs_list): Command(cmd_line),cmd_line(cmd_line),jobs_list(jobs_list){};
+    virtual ~ExternalCommand() {}
     void execute() override;
 };
 /*
