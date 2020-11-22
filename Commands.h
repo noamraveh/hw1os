@@ -6,9 +6,11 @@
 #include <ctime>
 #include <string>
 #include <set>
+#include <iostream>
 #include <dirent.h>
 #include <unistd.h>
-
+#include "string.h"
+#include "algorithm"
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
@@ -37,22 +39,27 @@ public:
 
 
 class PipeCommand : public Command {
-    // TODO: Add your data members
+    char* args[2];
+    bool err;
 public:
-    PipeCommand(const char* cmd_line);
+    PipeCommand( const char* cmd_line, bool err):Command(cmd_line),err(err){
+        char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+        strcpy(unconst_cmd_line,cmd_line);
+        if (err){
+            args[0] = strtok(unconst_cmd_line, "|&");
+            args[1] = strtok(nullptr, "|&");
+        }
+        else{
+            args[0] = strtok(unconst_cmd_line, "|");
+            args[1] = strtok(nullptr, "|");
+        }
+
+    };
     virtual ~PipeCommand() {}
     void execute() override;
 };
 
-class RedirectionCommand : public Command {
-    // TODO: Add your data members
-public:
-    explicit RedirectionCommand(const char* cmd_line);
-    virtual ~RedirectionCommand() {}
-    void execute() override;
-    //void prepare() override;
-    //void cleanup() override;
-};
+
 /*
 class CommandsHistory {
  protected:
@@ -85,9 +92,12 @@ private:
       int process_id;
       time_t start_time;
       bool stopped;
+      char* original_cmd_line;
   public:
-      JobEntry(char* cmd_line,int id,int pid, bool stopped):cmd_line(cmd_line),job_id(id),process_id(pid), stopped(stopped){
+      JobEntry(char* cmd_line,int id,int pid, bool stopped, const char* org_cmd_line):cmd_line(cmd_line),job_id(id),process_id(pid), stopped(stopped){
           start_time = time(nullptr);
+          original_cmd_line = (char*)malloc(sizeof(org_cmd_line)+1);
+          strcpy(original_cmd_line,org_cmd_line);
       };
       ~JobEntry(){}
       time_t getStartTime(){
@@ -107,6 +117,9 @@ private:
       }
       void changeIsStopped(bool status){
           stopped = status;
+      }
+      const char* getOrgCmdLine(){
+          return original_cmd_line;
       }
 
    // TODO: Add your data members
@@ -245,13 +258,13 @@ class KillCommand : public BuiltInCommand {
           return;
       }
       else{
-          sig_num = *cmd_args[1]; //TODO: cut the "-" in the beginning
+          sig_num = std::stoi(std::string(cmd_args[1]+1));
           if (!cmd_args[2]){
               valid_input = false;
               return;
           }
           else{
-              job_id = *cmd_args[2];
+              job_id = std::stoi(std::string(cmd_args[2]));
               if(cmd_args[3] != nullptr){
                   valid_input = false;
              }
@@ -275,7 +288,7 @@ public:
             return;
         }
         else {
-            job_id = (int)*cmd_args[1]; //TODO: cut the "-" in the beginning
+            job_id = std::stoi(std::string(cmd_args[1]));
             if (cmd_args[2] != nullptr) {
                 too_many_args = true;
             }
@@ -297,7 +310,7 @@ class BackgroundCommand : public BuiltInCommand {
           return;
       }
       else {
-          job_id = (int)*cmd_args[1]; //TODO: cut the "-" in the beginning
+          job_id = std::stoi(std::string(cmd_args[1]));
           if (cmd_args[2] != nullptr) {
               too_many_args = true;
           }
@@ -312,7 +325,7 @@ class QuitCommand : public BuiltInCommand {
     bool kill;
 public:
     QuitCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list) ,kill(false){
-        if  (cmd_args[1] == "kill"){
+        if (strcmp(cmd_args[1],"kill") == 0){
             kill = true;
         }
     }
@@ -328,6 +341,36 @@ public:
     virtual ~ExternalCommand() {}
     void execute() override;
 };
+
+class RedirectionCommand : public Command {
+    SmallShell* smash;
+    JobsList* jobs_list;
+    char* args[2];
+    bool to_append;
+    bool built_in;
+public:
+    RedirectionCommand(const char* cmd_line, bool to_append, bool built_in, JobsList* jobs_list, SmallShell* smash):Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash){
+        char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+        strcpy(unconst_cmd_line,cmd_line);
+        args[0] = strtok(unconst_cmd_line, ">");
+        args[1] = strtok(nullptr, ">");
+        std::string argszero = std::string(args[0]);
+        argszero.erase(std::remove(argszero.begin(), argszero.end(), ' '), argszero.end());
+        strcpy(args[0], argszero.c_str());
+        std::string argsone = std::string(args[1]);
+        argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
+        strcpy(args[1], argsone.c_str());
+    };
+    virtual ~RedirectionCommand() {}
+    void execute() override;
+    //void prepare() override;
+    //void cleanup() override;
+};
+
+
+
+
+
 /*
 // TODO: add more classes if needed 
 // maybe ls, timeout ?

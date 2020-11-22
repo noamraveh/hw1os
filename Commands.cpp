@@ -5,10 +5,14 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
+#define NUM_BUILT_IN_CMD 10
 
 #if 0
 #define FUNC_ENTRY()  \
@@ -85,7 +89,15 @@ void goBack(char* current){
     *(strrchr(current, '/') + 1) = 0;
 }
 // TODO: Add your implementation for classes in Commands.h 
-
+bool isBuiltIn(char* cmd_name){
+    char* commands[] = {"chprompt","ls", "showpid", "pwd","cd","jobs","kill","fg","bg","quit"};
+    for (int i = 0 ; i < NUM_BUILT_IN_CMD ; i++){
+        if (strcmp(cmd_name,commands[i]) == 0){
+            return true;
+        }
+    }
+    return false;
+}
 SmallShell::~SmallShell() {
     free(cur_dir);
     free(prev_dir);
@@ -115,7 +127,20 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
   string cmd_s = string(cmd_line);
   char* cmd_args[20];
   _parseCommandLine(cmd_line,cmd_args);
-  if (cmd_s.find("pwd") == 0) {
+  bool builtIn = isBuiltIn(cmd_args[0]);
+    if (cmd_s.find(">>")!=-1) {
+        return new RedirectionCommand(cmd_line,true,builtIn,jobs_list,this);
+    }
+    else if (cmd_s.find(">")!=-1) {
+        return new RedirectionCommand(cmd_line,false,builtIn,jobs_list,this);
+    }
+    else if (cmd_s.find("|&")!=-1) {
+        return new PipeCommand(cmd_line,true);
+    }
+    else if (cmd_s.find("|")!=-1) {
+        return new PipeCommand(cmd_line,false);
+    }
+  else if (cmd_s.find("pwd") == 0) {
     return new GetCurrDirCommand(cmd_line,this);
   }
   else if (cmd_s.find("chprompt") == 0){
@@ -156,10 +181,11 @@ void SmallShell::executeCommand(const char *cmd_line) {
 }
 
 void JobsList::addJob(Command *cmd,pid_t pid, bool is_stopped) {
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd->getCmdLine()+1));
+    removeFinishedJobs();
+    char* un_const_cmd_line = (char*)malloc(sizeof(cmd->getCmdLine())+1);
     strcpy(un_const_cmd_line,cmd->getCmdLine());
     _removeBackgroundSign(un_const_cmd_line);
-    auto new_job = new JobEntry(un_const_cmd_line,getMaxJob()+1, pid, false);
+    auto new_job = new JobEntry(un_const_cmd_line,getMaxJob()+1, pid, false, cmd->getCmdLine());
     jobs_list.push_back(new_job);
     num_jobs++;
 }
@@ -183,18 +209,26 @@ void JobsList::killAllJobs() {
             cout << "&";
         }
         cout<<endl;
+    }
+    for (auto job : jobs_list){
         int ret_val = kill(job->getProcessId(),SIGKILL);
         if(ret_val != 0)
             perror("smash error: kill failed");
+        exit(0);
     }
     jobs_list.clear();
 }
 void JobsList::removeFinishedJobs() {
+    std::vector<JobEntry*> to_remove;
+
     for (auto job:jobs_list){
         if(waitpid(job->getProcessId(),nullptr,WNOHANG) > 0){
-            jobs_list.remove(job);
-            num_jobs--;
+            to_remove.push_back(job);
         }
+    }
+    for (auto job:to_remove){
+        jobs_list.remove(job);
+        num_jobs--;
     }
 }
 
@@ -283,6 +317,7 @@ void ChangeDirCommand::execute() {
                 int ret_val = chdir(smash->getPrevDir());
                 if (ret_val != 0){
                     perror("smash error: chdir failed");
+                    exit(0);
                 }
                 else{
                     smash->updateDirs();
@@ -299,6 +334,7 @@ void ChangeDirCommand::execute() {
             free(current);
             if (ret_val != 0){
                 perror("smash error: chdir failed");
+                exit(0);
             }
             else{
                 smash->updateDirs();
@@ -308,6 +344,7 @@ void ChangeDirCommand::execute() {
         int retVal = chdir(new_path);
             if (retVal != 0){
                 perror("smash error: chdir failed");
+                exit(0);
             }
             else{
                 smash->updateDirs();
@@ -322,9 +359,11 @@ void ShowFilesCommand::execute() {
     int n;
     int i = 0;
     n = scandir(".", &namelist, NULL, alphasort);
-    if (n < 0)
+    if (n < 0){
         perror("smash error:scandir failed");
-    else {
+        exit(0);
+    }
+    else{
         while (i < n) {
             printf("%s\n", namelist[i]->d_name);
             free(namelist[i]);
@@ -356,6 +395,7 @@ void KillCommand::execute() {
         int ret_val = kill(pid,sig_num);
         if (ret_val != 0){
             perror("smash error: kill failed");
+            exit(0);
         }
         else{
             cout<< "signal number " << sig_num << " was sent to pid " << pid <<endl;
@@ -370,7 +410,7 @@ void ForegroundCommand::execute() {
         }
         else{
             int pid = jobs_list->getMaxJob();
-            cout<< getCmdLine() << " : "<< pid << endl;
+            cout<< jobs_list->getJobById(job_id)->getOrgCmdLine() << " : "<< pid << endl;
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
@@ -385,7 +425,7 @@ void ForegroundCommand::execute() {
             cout<<"smash error: fg: job-id " << job_id << " does not exist"<<endl;
         }
         else{
-            cout<< getCmdLine() << " : "<< pid << endl;
+            cout<< jobs_list->getJobById(job_id)->getOrgCmdLine()  << " : "<< pid << endl;
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
@@ -400,9 +440,9 @@ void BackgroundCommand::execute() {
             cout << "smash error: bg: there is no stopped job to resume" << endl;
         } else {
             int pid = jobs_list->getJobById(lastStoppedId)->getProcessId();
-            cout << getCmdLine() << " : " << pid << endl;
+            cout << jobs_list->getJobById(job_id)->getOrgCmdLine() << " : " << pid << endl;
             kill(pid, SIGCONT);
-            jobs_list->resumeJob(job_id); //TODO: maybe add &
+            jobs_list->resumeJob(job_id);
         }
     }
     else if (too_many_args){
@@ -417,23 +457,23 @@ void BackgroundCommand::execute() {
             cout << "smash error: bg: job-id " << job_id << " is already running in the background" << endl;
         }
         else {
-            cout << getCmdLine() << " : " << pid << endl;
+            cout << jobs_list->getJobById(job_id)->getOrgCmdLine() << " : " << pid << endl;
             kill(pid, SIGCONT);
-            jobs_list->resumeJob(job_id); //TODO: maybe add &
+            jobs_list->resumeJob(job_id);
         }
     }
 }
 
 void QuitCommand::execute() {
     if (kill){
-        cout<< "sending SIGKILL signal to "<< jobs_list->getNumJobs() << "jobs:"<<endl;
+        cout<< "sending SIGKILL signal to "<< jobs_list->getNumJobs() << " jobs:"<<endl;
         jobs_list->killAllJobs();
         }
     exit(0);
 }
 
 void ExternalCommand::execute() {
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line+1));
+    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
     strcpy(un_const_cmd_line,cmd_line);
     char arg0[] = "/bin/bash";
     char arg1[] = "-c";
@@ -442,6 +482,7 @@ void ExternalCommand::execute() {
     pid_t child_pid = fork();
     if (child_pid == -1){
         perror("smash error: fork failed");
+        exit(0);
     }
     else if(child_pid > 0){
         char* modified_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
@@ -462,3 +503,106 @@ void ExternalCommand::execute() {
     }
 
 }
+
+void RedirectionCommand::execute() {
+    if (!built_in) {
+        ExternalCommand *cmd = new ExternalCommand(this->getCmdLine(), jobs_list);
+        cmd->execute();
+    } else {
+        if (to_append) {
+            int fd = open(args[1], O_WRONLY | O_CREAT | O_APPEND, 0666);
+            if (fd == -1) {
+                perror("smash error: open failed");
+                exit(0);
+            }
+            int old_std = dup(1);
+            if (old_std == -1) {
+                perror("smash error: dup failed");
+                exit(0);
+            }
+            if (dup2(fd, 1) == -1) {
+                perror("smash error: dup2 failed");
+                exit(0);
+            }
+            smash->executeCommand(args[0]);
+            int ret_val = close(fd);
+            if (ret_val) {
+                perror("smash error: close failed");
+                exit(0);
+            }
+            if (dup2(old_std, 1) == -1) {
+                perror("smash error: dup2 failed");
+                exit(0);
+            }
+
+        } else {
+            int fd = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0666);
+            if (fd == -1) {
+                perror("smash error: open failed");
+                exit(0);
+            }
+            int old_std = dup(1);
+            if (old_std == -1) {
+                perror("smash error: dup failed");
+                exit(0);
+            }
+            if (dup2(fd, 1) == -1) {
+                perror("smash error: dup2 failed");
+                exit(0);
+            }
+            smash->executeCommand(args[0]);
+            int ret_val = close(fd);
+            if (ret_val) {
+                perror("smash error: close failed");
+                exit(0);
+            }
+            if (dup2(old_std, 1) == -1) {
+                perror("smash error: dup2 failed");
+                exit(0);
+            }
+        }
+    }
+}
+
+void PipeCommand::execute() {
+    int fd[2];
+    int ret_val = pipe(fd);
+    if (ret_val == -1) {
+        perror("smash error: pipe failed");
+        exit(0);
+    }
+    pid_t pid1 = fork();
+    if (pid1 < 0) {
+        perror("smash error: fork failed");
+        exit(0);
+    }
+    if (pid1 == 0) { // first child
+        if (err) {
+            dup2(fd[1], 2);
+        } else {
+            dup2(fd[1], 1);
+        }
+        if (close(fd[0]) == -1 || close(fd[1]) == -1) {
+            perror("smash error : close failed");
+            exit(0);
+        }
+
+        //execv(....)// TODO: fill
+    }
+    pid_t pid2 = fork();
+    if (pid1 < 0) {
+        perror("smash error: fork failed");
+        exit(0);
+    }
+    if (pid2 == 0) { //second child
+        dup2(fd[0], 0);
+        close(fd[0]);
+        close(fd[1]);
+        //execv(....)// TODO: fill
+    }
+    close(fd[0]);
+    close(fd[1]);
+}
+
+
+
