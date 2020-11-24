@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include "string.h"
 #include "algorithm"
+#include <cmath>
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
@@ -93,8 +94,9 @@ private:
       time_t start_time;
       bool stopped;
       char* original_cmd_line;
+      Command* cmd;
   public:
-      JobEntry(char* cmd_line,int id,int pid, bool stopped, const char* org_cmd_line):cmd_line(cmd_line),job_id(id),process_id(pid), stopped(stopped){
+      JobEntry(Command* cmd,char* cmd_line,int pid, bool stopped, const char* org_cmd_line,int id = -1):cmd(cmd),cmd_line(cmd_line),process_id(pid), stopped(stopped),job_id(id){
           start_time = time(nullptr);
           original_cmd_line = (char*)malloc(sizeof(org_cmd_line)+1);
           strcpy(original_cmd_line,org_cmd_line);
@@ -121,16 +123,21 @@ private:
       const char* getOrgCmdLine(){
           return original_cmd_line;
       }
+      Command* getCmd(){
+          return cmd;
+      }
 
-   // TODO: Add your data members
+
+          // TODO: Add your data members
   };
   std::list<JobEntry*> jobs_list;
   int num_jobs;
+  int id_in_fg;
     // TODO: Add your data members
  public:
   JobsList(): num_jobs(0){};
   ~JobsList(){};
-  void addJob(Command* cmd,pid_t pid, bool stopped = false);
+  void addJob(Command* cmd,pid_t pid, int cur_job_id, bool stopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
@@ -144,10 +151,22 @@ private:
       if (jobs_list.size() == 0){
           return 0;
       }
-      return jobs_list.back()->getJobId();
+      return fmax(jobs_list.back()->getJobId(),id_in_fg);
   }
   void resumeJob(int job_id);
   int getNumJobs();
+  void clearJobs(){
+      jobs_list.clear();
+  }
+  void updateIdInFg(int job_id){
+      id_in_fg = job_id;
+  }
+  Command* getCmd(){
+      return jobs_list.front()->getCmd();
+  }
+  int getJobId(){
+      return jobs_list.front()->getJobId();
+  }
 };
 
 class SmallShell {
@@ -156,9 +175,10 @@ private:
     char* cur_dir;
     std::string shell_name;
     JobsList* jobs_list;
+    JobsList* in_fg;
     // TODO: Add your data members
 public:
-    SmallShell():jobs_list(new JobsList),shell_name("smash"){
+    SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"){
         cur_dir =  get_current_dir_name();
         prev_dir = get_current_dir_name();
 
@@ -178,6 +198,33 @@ public:
         static SmallShell instance; // Guaranteed to be destroyed.
         // Instantiated on first use.
         return instance;
+    }
+    void StopFG() {
+        std::cout << "smash: got ctrl-Z" << std::endl;
+        pid_t pid = getpid();
+        if (!in_fg->isEmpty()){
+            jobs_list->addJob(in_fg->getCmd(), pid, in_fg->getJobId(), true);
+            int ret_val = kill(pid, SIGSTOP);
+            if (ret_val != 0){
+                perror("smash error: kill failed");
+                exit(0);
+            }
+            std::cout << "smash: process " << pid << "was stopped" << std::endl;
+        }
+        //add error
+    }
+
+    void KillFG(){
+        std::cout << "smash: got ctrl-C" << std::endl;
+        pid_t pid = getpid();
+        if (!in_fg->isEmpty()){
+            int ret_val = kill(pid, SIGKILL);
+            if (ret_val != 0){
+                perror("smash error: kill failed");
+                exit(0);
+        }
+            std::cout << "smash: process " << pid << "was killed" << std::endl;
+        }
     }
 };
 
@@ -278,11 +325,12 @@ class KillCommand : public BuiltInCommand {
 
 class ForegroundCommand : public BuiltInCommand {
     JobsList* jobs_list;
+    JobsList* in_fg;
     int job_id;
     bool too_many_args;
     bool no_args;
 public:
-    ForegroundCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list), too_many_args(false),no_args(false){
+    ForegroundCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list,JobsList* in_fg): BuiltInCommand(cmd_line), jobs_list(jobs_list),in_fg(in_fg), too_many_args(false),no_args(false){
         if (!cmd_args[1]){
             no_args = true;
             return;
@@ -336,8 +384,9 @@ public:
 class ExternalCommand : public Command {
     const char* cmd_line;
     JobsList* jobs_list;
+    JobsList* in_fg;
 public:
-    explicit ExternalCommand(const char* cmd_line,JobsList* jobs_list): Command(cmd_line),cmd_line(cmd_line),jobs_list(jobs_list){};
+    explicit ExternalCommand(const char* cmd_line,JobsList* jobs_list,JobsList* in_fg = nullptr): Command(cmd_line),cmd_line(cmd_line),jobs_list(jobs_list),in_fg(in_fg){};
     virtual ~ExternalCommand() {}
     void execute() override;
 };
