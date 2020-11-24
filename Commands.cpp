@@ -180,17 +180,17 @@ void SmallShell::executeCommand(const char *cmd_line) {
    cmd->execute();
 }
 
-void JobsList::addJob(Command *cmd,pid_t pid,int cur_job_id, bool is_stopped) {
+void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, bool is_stopped) {
     removeFinishedJobs();
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd->getCmdLine())+1);
-    strcpy(un_const_cmd_line,cmd->getCmdLine());
+    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    strcpy(un_const_cmd_line,cmd_line);
     _removeBackgroundSign(un_const_cmd_line);
     if (cur_job_id == -1) {
-        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, is_stopped, cmd->getCmdLine(), getMaxJob() + 1);
+        auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, getMaxJob() + 1);
         jobs_list.push_back(new_job);
     }
     else {
-        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, is_stopped, cmd->getCmdLine(), cur_job_id);
+        auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, cur_job_id);
         jobs_list.push_back(new_job);
     }
     num_jobs++;
@@ -198,6 +198,7 @@ void JobsList::addJob(Command *cmd,pid_t pid,int cur_job_id, bool is_stopped) {
 
 void JobsList::printJobsList() {
     time_t now = time(0); //time when starting print
+    jobs_list.sort(compareJobEntries);
     for (auto job : jobs_list){
         double timeElapsed = difftime(now,job->getStartTime());
         cout << "[" << job->getJobId() << "] " << job->getOrgCmdLine() <<  " : " << job->getProcessId()  << " " << timeElapsed << " secs ";
@@ -410,18 +411,17 @@ void KillCommand::execute() {
 }
 
 void ForegroundCommand::execute() {
-    if (in_fg->getNumJobs() > 0){
-        in_fg->clearJobs();
-    }
     jobs_list->updateIdInFg(-1);
     if(no_args){
         if(jobs_list->isEmpty()){
             cout<< "smash error: fg: jobs list is empty" << endl;
         }
         else{
-            int pid = jobs_list->getMaxJob();
+            int job_id = jobs_list->getMaxJob();
+            int pid = jobs_list->getPid(job_id);
             cout<< jobs_list->getJobById(job_id)->getOrgCmdLine() << " : "<< pid << endl;
-            in_fg->addJob(this,pid,job_id,true);
+            in_fg->clearJobs();
+            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,true);
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
@@ -438,7 +438,8 @@ void ForegroundCommand::execute() {
         }
         else{
             cout<< jobs_list->getJobById(job_id)->getOrgCmdLine()  << " : "<< pid << endl;
-            in_fg->addJob(this,pid,job_id,true);
+            in_fg->clearJobs();
+            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,true);
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
@@ -504,10 +505,11 @@ void ExternalCommand::execute() {
         _removeBackgroundSign(modified_cmd_line);
         int diff = strcmp(cmd_line,modified_cmd_line);
         if (diff){
-            jobs_list->addJob(this,child_pid,-1,false);
+            jobs_list->addJob(cmd_line,child_pid,-1,false);
         }
         if(!_isBackgroundCommand(cmd_line)){
-            in_fg->addJob(this,child_pid,-1,false);
+            in_fg->clearJobs();
+            in_fg->addJob(cmd_line,child_pid,-1,false);
             waitpid(child_pid, nullptr,WUNTRACED);
         }
     }

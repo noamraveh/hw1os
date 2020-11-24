@@ -95,9 +95,8 @@ private:
       time_t start_time;
       bool stopped;
       char* original_cmd_line;
-      Command* cmd;
   public:
-      JobEntry(Command* cmd,char* cmd_line,int pid, bool stopped, const char* org_cmd_line,int id = -1):cmd(cmd),cmd_line(cmd_line),process_id(pid), stopped(stopped),job_id(id){
+      JobEntry(char* cmd_line,int pid, bool stopped, const char* org_cmd_line,int id = -1):cmd_line(cmd_line),process_id(pid), stopped(stopped),job_id(id){
           start_time = time(nullptr);
           original_cmd_line = (char*)malloc(sizeof(org_cmd_line)+1);
           strcpy(original_cmd_line,org_cmd_line);
@@ -124,9 +123,7 @@ private:
       const char* getOrgCmdLine(){
           return original_cmd_line;
       }
-      Command* getCmd(){
-          return cmd;
-      }
+
 
 
           // TODO: Add your data members
@@ -138,7 +135,7 @@ private:
  public:
   JobsList(): num_jobs(0){};
   ~JobsList(){};
-  void addJob(Command* cmd,pid_t pid, int cur_job_id, bool stopped = false);
+  void addJob(const char* cmd_line,pid_t pid, int cur_job_id, bool stopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
@@ -157,20 +154,27 @@ private:
   void resumeJob(int job_id);
   int getNumJobs();
   void clearJobs(){
-      jobs_list.clear();
+      if (jobs_list.size() != 0)
+        jobs_list.clear();
+      num_jobs = 0;
   }
   void updateIdInFg(int job_id){
       id_in_fg = job_id;
   }
-  Command* getCmd(){
-      return jobs_list.front()->getCmd();
-  }
+
   int getJobId(){
       return jobs_list.front()->getJobId();
   }
   int getFGPid(){
       return jobs_list.front()->getProcessId();
   }
+  const char* getFGCmdLine(){
+      return jobs_list.front()->getOrgCmdLine();
+  }
+  static bool compareJobEntries(JobEntry* j1, JobEntry* j2){
+      return j1->getJobId() < j2->getJobId();
+  }
+
 };
 
 class SmallShell {
@@ -207,8 +211,10 @@ public:
         std::cout << "smash: got ctrl-Z" << std::endl;
         if (!in_fg->isEmpty()){
             pid_t pid = in_fg->getFGPid();
-            jobs_list->addJob(in_fg->getCmd(), pid, in_fg->getJobId(), true);
+            jobs_list->addJob(in_fg->getFGCmdLine(), pid, in_fg->getJobId(), true);
             int ret_val = kill(pid, SIGSTOP);
+            std::cout << ret_val <<std::endl ;
+            std::cout << pid <<std::endl;
             if (ret_val != 0){
                 perror("smash error: kill failed");
                 exit(0);
