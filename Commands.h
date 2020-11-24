@@ -15,7 +15,8 @@
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
-
+//TODO print zero jobs
+//TODO reset time when readding
 class Command {
 private:
     const char* cmd_line;
@@ -167,6 +168,9 @@ private:
   int getJobId(){
       return jobs_list.front()->getJobId();
   }
+  int getFGPid(){
+      return jobs_list.front()->getProcessId();
+  }
 };
 
 class SmallShell {
@@ -201,29 +205,30 @@ public:
     }
     void StopFG() {
         std::cout << "smash: got ctrl-Z" << std::endl;
-        pid_t pid = getpid();
         if (!in_fg->isEmpty()){
+            pid_t pid = in_fg->getFGPid();
             jobs_list->addJob(in_fg->getCmd(), pid, in_fg->getJobId(), true);
             int ret_val = kill(pid, SIGSTOP);
             if (ret_val != 0){
                 perror("smash error: kill failed");
                 exit(0);
             }
-            std::cout << "smash: process " << pid << "was stopped" << std::endl;
+            std::cout << "smash: process " << pid << " was stopped" << std::endl;
         }
         //add error
     }
 
     void KillFG(){
         std::cout << "smash: got ctrl-C" << std::endl;
-        pid_t pid = getpid();
+
         if (!in_fg->isEmpty()){
+            pid_t pid = in_fg->getFGPid();
             int ret_val = kill(pid, SIGKILL);
             if (ret_val != 0){
                 perror("smash error: kill failed");
                 exit(0);
         }
-            std::cout << "smash: process " << pid << "was killed" << std::endl;
+            std::cout << "smash: process " << pid << " was killed" << std::endl;
         }
     }
 };

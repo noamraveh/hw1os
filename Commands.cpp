@@ -186,11 +186,11 @@ void JobsList::addJob(Command *cmd,pid_t pid,int cur_job_id, bool is_stopped) {
     strcpy(un_const_cmd_line,cmd->getCmdLine());
     _removeBackgroundSign(un_const_cmd_line);
     if (cur_job_id == -1) {
-        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, false, cmd->getCmdLine(), getMaxJob() + 1);
+        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, is_stopped, cmd->getCmdLine(), getMaxJob() + 1);
         jobs_list.push_back(new_job);
     }
     else {
-        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, false, cmd->getCmdLine(), cur_job_id);
+        auto new_job = new JobEntry(cmd,un_const_cmd_line, pid, is_stopped, cmd->getCmdLine(), cur_job_id);
         jobs_list.push_back(new_job);
     }
     num_jobs++;
@@ -200,11 +200,11 @@ void JobsList::printJobsList() {
     time_t now = time(0); //time when starting print
     for (auto job : jobs_list){
         double timeElapsed = difftime(now,job->getStartTime());
-        cout << "[" << job->getJobId() << "] " << job->getCmdLine();
+        cout << "[" << job->getJobId() << "] " << job->getOrgCmdLine() <<  " : " << job->getProcessId()  << " " << timeElapsed << " secs ";
         if (job->isStopped()) {
-            cout << " : " << job->getProcessId()  << " " << timeElapsed << " secs (stopped)" << endl;
+            cout <<"(stopped)" << endl;
         } else
-            cout<< "& : " << job->getProcessId()  << " " << timeElapsed << " secs" << endl;
+            cout << endl;
     }
 }
 
