@@ -90,9 +90,10 @@ void goBack(char* current){
 }
 // TODO: Add your implementation for classes in Commands.h 
 bool isBuiltIn(char* cmd_name){
+    std::string cmd(cmd_name);
     char* commands[] = {"chprompt","ls", "showpid", "pwd","cd","jobs","kill","fg","bg","quit"};
     for (int i = 0 ; i < NUM_BUILT_IN_CMD ; i++){
-        if (strcmp(cmd_name,commands[i]) == 0){
+        if (cmd.find(commands[i])!=-1){
             return true;
         }
     }
@@ -124,10 +125,10 @@ void SmallShell::updateDirs() {
 */
 Command * SmallShell::CreateCommand(const char* cmd_line) {
 
-  string cmd_s = string(cmd_line);
-  char* cmd_args[20];
-  _parseCommandLine(cmd_line,cmd_args);
-  bool builtIn = isBuiltIn(cmd_args[0]);
+    string cmd_s = string(cmd_line);
+    char* cmd_args[20];
+     _parseCommandLine(cmd_line,cmd_args);
+     bool builtIn = isBuiltIn(cmd_args[0]);
     if (cmd_s.find(">>")!=-1) {
         return new RedirectionCommand(cmd_line,true,builtIn,jobs_list,this);
     }
@@ -140,39 +141,39 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     else if (cmd_s.find("|")!=-1) {
         return new PipeCommand(cmd_line,false);
     }
-  else if (cmd_s.find("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line,this);
-  }
-  else if (cmd_s.find("chprompt") == 0){
-      return new ChangePromptCommand(cmd_line,cmd_args,this);
-  }
-  else if (cmd_s.find("ls") == 0){
-      return new ShowFilesCommand(cmd_line,this);
-  }
-  else if (cmd_s.find("showpid") == 0){
-      return new ShowPidCommand(cmd_line);
-  }
-  else if (cmd_s.find("cd") == 0){
-      return new ChangeDirCommand(cmd_line,cmd_args,this);
-  }
-  else if (cmd_s.find("jobs") == 0){
-      return new JobsCommand(cmd_line,jobs_list,in_fg);
-  }
-  else if (cmd_s.find("kill") == 0){
-      return new KillCommand(cmd_line,cmd_args,jobs_list);
-  }
-  else if (cmd_s.find("fg") == 0){
-      return new ForegroundCommand(cmd_line,cmd_args,jobs_list,in_fg);
-  }
-  else if (cmd_s.find("bg") == 0){
-      return new BackgroundCommand(cmd_line,cmd_args,jobs_list);
-  }
-  else if (cmd_s.find("quit") == 0){
-      return new QuitCommand(cmd_line,cmd_args,jobs_list);
-  }
-  else {
-      return new ExternalCommand(cmd_line,jobs_list,in_fg); //TODO:External command
-  }
+     else if (cmd_s.find("pwd") == 0) {
+         return new GetCurrDirCommand(cmd_line,this);
+     }
+     else if (cmd_s.find("chprompt") == 0){
+         return new ChangePromptCommand(cmd_line,cmd_args,this);
+     }
+     else if (cmd_s.find("ls") == 0){
+         return new ShowFilesCommand(cmd_line,this);
+      }
+     else if (cmd_s.find("showpid") == 0){
+         return new ShowPidCommand(cmd_line);
+     }
+     else if (cmd_s.find("cd") == 0){
+         return new ChangeDirCommand(cmd_line,cmd_args,this);
+     }
+     else if (cmd_s.find("jobs") == 0){
+         return new JobsCommand(cmd_line,jobs_list,in_fg);
+     }
+     else if (cmd_s.find("kill") == 0){
+         return new KillCommand(cmd_line,cmd_args,jobs_list);
+     }
+     else if (cmd_s.find("fg") == 0){
+         return new ForegroundCommand(cmd_line,cmd_args,jobs_list,in_fg);
+     }
+     else if (cmd_s.find("bg") == 0){
+         return new BackgroundCommand(cmd_line,cmd_args,jobs_list);
+     }
+     else if (cmd_s.find("quit") == 0){
+         return new QuitCommand(cmd_line,cmd_args,jobs_list);
+     }
+     else {
+         return new ExternalCommand(cmd_line,jobs_list,in_fg); //TODO:External command
+     }
 }
 
 void SmallShell::executeCommand(const char *cmd_line) {
