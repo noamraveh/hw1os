@@ -135,7 +135,7 @@ private:
  public:
   JobsList(): num_jobs(0){};
   ~JobsList(){};
-  void addJob(const char* cmd_line,pid_t pid, int cur_job_id, bool stopped = false);
+  void addJob(const char* cmd_line,pid_t pid, int cur_job_id,int* new_id, bool stopped = false);
   void printJobsList();
   void killAllJobs();
   void removeFinishedJobs();
@@ -146,6 +146,7 @@ private:
   int getPid(int job_id);
   bool isEmpty();
   int getMaxJob(){
+      removeFinishedJobs();
       if (jobs_list.size() == 0){
           return fmax(0,id_in_fg);
       }
@@ -211,8 +212,9 @@ public:
         std::cout << "smash: got ctrl-Z" << std::endl;
         if (!in_fg->isEmpty()){
             pid_t pid = in_fg->getFGPid();
-            jobs_list->addJob(in_fg->getFGCmdLine(), pid, in_fg->getJobId(), true);
-            int ret_val = kill(pid, SIGSTOP);
+            int new_job_id;
+            jobs_list->addJob(in_fg->getFGCmdLine(), pid, in_fg->getJobId(), &new_job_id,true);
+            int ret_val = killpg(pid, SIGSTOP);
             std::cout << ret_val <<std::endl ;
             std::cout << pid <<std::endl;
             if (ret_val != 0){
@@ -221,6 +223,8 @@ public:
             }
             std::cout << "smash: process " << pid << " was stopped" << std::endl;
         }
+        in_fg->updateIdInFg(0);
+        jobs_list->updateIdInFg(0);
         //add error
     }
 
@@ -229,13 +233,15 @@ public:
 
         if (!in_fg->isEmpty()){
             pid_t pid = in_fg->getFGPid();
-            int ret_val = kill(pid, SIGKILL);
+            int ret_val = killpg(pid, SIGKILL);
             if (ret_val != 0){
                 perror("smash error: kill failed");
                 exit(0);
         }
             std::cout << "smash: process " << pid << " was killed" << std::endl;
         }
+        in_fg->updateIdInFg(0);
+        jobs_list->updateIdInFg(0);
     }
 };
 
@@ -298,8 +304,9 @@ public:
 
 class JobsCommand : public BuiltInCommand {
     JobsList* jobs_list;
+    JobsList* in_fg;
 public:
-    JobsCommand(const char* cmd_line,JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list){};
+    JobsCommand(const char* cmd_line,JobsList* jobs_list,JobsList* in_fg):BuiltInCommand(cmd_line), jobs_list(jobs_list),in_fg(in_fg){};
     virtual ~JobsCommand() {}
     void execute() override;
 };

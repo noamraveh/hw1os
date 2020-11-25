@@ -156,7 +156,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
       return new ChangeDirCommand(cmd_line,cmd_args,this);
   }
   else if (cmd_s.find("jobs") == 0){
-      return new JobsCommand(cmd_line,jobs_list);
+      return new JobsCommand(cmd_line,jobs_list,in_fg);
   }
   else if (cmd_s.find("kill") == 0){
       return new KillCommand(cmd_line,cmd_args,jobs_list);
@@ -180,7 +180,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
    cmd->execute();
 }
 
-void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, bool is_stopped) {
+void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, int* new_id,bool is_stopped) {
     removeFinishedJobs();
     char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
     strcpy(un_const_cmd_line,cmd_line);
@@ -188,11 +188,13 @@ void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, bool is_sto
     if (cur_job_id == -1) {
         int new_job_id = getMaxJob()+1;
         auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, new_job_id);
+        *new_id = new_job_id;
         updateIdInFg(new_job_id);
         jobs_list.push_back(new_job);
     }
     else {
         auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, cur_job_id);
+        *new_id = cur_job_id;
         updateIdInFg(cur_job_id);
         jobs_list.push_back(new_job);
     }
@@ -387,6 +389,8 @@ void JobsCommand::execute() {
     if(!jobs_list){
         return;
     }
+    in_fg->updateIdInFg(0);
+    jobs_list->updateIdInFg(0);
     jobs_list->removeFinishedJobs();
     jobs_list->printJobsList();
 }
@@ -415,6 +419,7 @@ void KillCommand::execute() {
 
 void ForegroundCommand::execute() {
     jobs_list->updateIdInFg(-1);
+    in_fg->updateIdInFg(-1);
     if(no_args){
         if(jobs_list->isEmpty()){
             cout<< "smash error: fg: jobs list is empty" << endl;
@@ -424,11 +429,17 @@ void ForegroundCommand::execute() {
             int pid = jobs_list->getPid(job_id);
             cout<< jobs_list->getJobById(job_id)->getOrgCmdLine() << " : "<< pid << endl;
             in_fg->clearJobs();
-            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,true);
+            in_fg->updateIdInFg(0);
+            jobs_list->updateIdInFg(0);
+            int new_job_id;
+            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,&new_job_id,true);
+            in_fg->updateIdInFg(new_job_id);
+            jobs_list->updateIdInFg(new_job_id);
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
             jobs_list->updateIdInFg(job_id);
+            in_fg->updateIdInFg(job_id);
         }
     }
     else if (too_many_args){
@@ -442,11 +453,17 @@ void ForegroundCommand::execute() {
         else{
             cout<< jobs_list->getJobById(job_id)->getOrgCmdLine()  << " : "<< pid << endl;
             in_fg->clearJobs();
-            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,true);
+            in_fg->updateIdInFg(0);
+            jobs_list->updateIdInFg(0);
+            int new_job_id;
+            in_fg->addJob(jobs_list->getJobById(job_id)->getOrgCmdLine(),pid,job_id,&new_job_id,true);
+            in_fg->updateIdInFg(new_job_id);
+            jobs_list->updateIdInFg(new_job_id);
             kill(pid,SIGCONT);
             waitpid(pid,nullptr, 0);
             jobs_list->removeJobById(job_id);
             jobs_list->updateIdInFg(job_id);
+            in_fg->updateIdInFg(job_id);
         }
     }
 }
@@ -508,11 +525,17 @@ void ExternalCommand::execute() {
         _removeBackgroundSign(modified_cmd_line);
         int diff = strcmp(cmd_line,modified_cmd_line);
         if (diff){
-            jobs_list->addJob(cmd_line,child_pid,-1,false);
+            int new_job_id;
+            jobs_list->addJob(cmd_line,child_pid,-1,&new_job_id,false);
         }
         if(!_isBackgroundCommand(cmd_line)){
+            int new_job_id;
             in_fg->clearJobs();
-            in_fg->addJob(cmd_line,child_pid,-1,false);
+            in_fg->updateIdInFg(0);
+            jobs_list->updateIdInFg(0);
+            in_fg->addJob(cmd_line,child_pid,-1,&new_job_id,false);
+            in_fg->updateIdInFg(new_job_id);
+            jobs_list->updateIdInFg(new_job_id);
             waitpid(child_pid, nullptr,WUNTRACED);
         }
     }
