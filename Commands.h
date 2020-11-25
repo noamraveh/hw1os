@@ -147,7 +147,7 @@ private:
   bool isEmpty();
   int getMaxJob(){
       if (jobs_list.size() == 0){
-          return 0;
+          return fmax(0,id_in_fg);
       }
       return fmax(jobs_list.back()->getJobId(),id_in_fg);
   }

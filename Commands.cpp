@@ -186,11 +186,14 @@ void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, bool is_sto
     strcpy(un_const_cmd_line,cmd_line);
     _removeBackgroundSign(un_const_cmd_line);
     if (cur_job_id == -1) {
-        auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, getMaxJob() + 1);
+        int new_job_id = getMaxJob()+1;
+        auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, new_job_id);
+        updateIdInFg(new_job_id);
         jobs_list.push_back(new_job);
     }
     else {
         auto new_job = new JobEntry(un_const_cmd_line, pid, is_stopped, cmd_line, cur_job_id);
+        updateIdInFg(cur_job_id);
         jobs_list.push_back(new_job);
     }
     num_jobs++;
