@@ -288,6 +288,9 @@ public:
     }
 
     void SetAlarm(){
+        alarm(0);
+        if (timeout_list->empty())
+            return;
         clearFinishedTimeoutProcesses();
         timeout_list->sort(cmp_alarms);
         TimeoutEntry* min_timeout = timeout_list->front();
@@ -296,7 +299,7 @@ public:
         int duration = min_timeout->getDuration();
         int alarm_time = duration - (now - start);
         int ret = alarm(alarm_time);
-        std::cout<<"was set for " << alarm_time << " secs" << std::endl;
+        std::cout<<"was set for " << alarm_time << " secs for" << min_timeout->getPid()<<  std::endl;
         if (ret != 0){
             perror("smash error: alarm failed");
             exit(0);
