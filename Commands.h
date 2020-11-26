@@ -12,6 +12,8 @@
 #include "string.h"
 #include "algorithm"
 #include <cmath>
+#include <sys/wait.h>
+
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
 #define HISTORY_MAX_RECORDS (50)
@@ -26,17 +28,13 @@ public:
     virtual void execute() = 0;
     //virtual void prepare();
     //virtual void cleanup();
+
     const char* getCmdLine(){
         return cmd_line;
     }
     // TODO: Add your extra methods if needed
 };
 
-class BuiltInCommand : public Command {
-public:
-    BuiltInCommand(const char* cmd_line):Command(cmd_line){};
-    virtual ~BuiltInCommand() {}
-};
 
 
 
@@ -85,7 +83,30 @@ class HistoryCommand : public BuiltInCommand {
   void execute() override;
 };
 */
-
+class TimeoutEntry{
+private:
+    const char* org_cmd_line;
+    time_t timestamp;
+    int duration;
+    pid_t pid;
+public:
+    TimeoutEntry(const char* cmd_line,int duration,pid_t pid): org_cmd_line(cmd_line),duration(duration),pid(pid){
+        timestamp = time(nullptr);
+    }
+    ~TimeoutEntry(){}
+    time_t getTimeStamp(){
+        return timestamp;
+    }
+    int getDuration(){
+        return duration;
+    }
+    pid_t getPid(){
+        return pid;
+    }
+    const char* getCmdLine(){
+        return org_cmd_line;
+    }
+};
 class JobsList {
 private:
   class JobEntry {
@@ -128,6 +149,7 @@ private:
 
           // TODO: Add your data members
   };
+
   std::list<JobEntry*> jobs_list;
   int num_jobs;
   int id_in_fg;
@@ -185,12 +207,12 @@ private:
     std::string shell_name;
     JobsList* jobs_list;
     JobsList* in_fg;
+    std::list<TimeoutEntry*>* timeout_list;
     // TODO: Add your data members
 public:
-    SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"){
+    SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"),timeout_list(new std::list<TimeoutEntry*>){
         cur_dir =  get_current_dir_name();
         prev_dir = get_current_dir_name();
-
     };
     ~SmallShell();
     SmallShell(SmallShell const &) = delete; // disable copy ctor
@@ -207,6 +229,28 @@ public:
         static SmallShell instance; // Guaranteed to be destroyed.
         // Instantiated on first use.
         return instance;
+    }
+    static bool cmp_alarms(TimeoutEntry* t1,  TimeoutEntry* t2){
+        time_t now = time(nullptr);
+        int t1_time_left = t1->getDuration() - (now - t1->getTimeStamp());
+        int t2_time_left = t2->getDuration() - (now - t2->getTimeStamp());
+        return t1_time_left < t2_time_left;
+    }
+     void clearFinishedTimeoutProcesses(){
+        /*std::vector<TimeoutEntry*> to_remove;
+
+        for (auto process:*timeout_list){
+            if(waitpid(process->getPid(),nullptr,WNOHANG) > 0){
+                to_remove.push_back(process);
+            }
+        }
+        for (auto process:to_remove){
+            timeout_list->remove(process);
+        }*/
+        return;
+    }
+    bool alarmListEmpty(){
+        return timeout_list->empty();
     }
     void StopFG() {
         std::cout << "smash: got ctrl-Z" << std::endl;
@@ -243,8 +287,40 @@ public:
         in_fg->updateIdInFg(0);
         jobs_list->updateIdInFg(0);
     }
+
+    void SetAlarm(){
+        clearFinishedTimeoutProcesses();
+        timeout_list->sort(cmp_alarms);
+        TimeoutEntry* min_timeout = timeout_list->front();
+        int alarm_time = min_timeout->getDuration() - time(nullptr) + min_timeout->getTimeStamp();
+        if (alarm_time < 0 )
+            alarm_time = 0;
+        int ret = alarm(alarm_time);
+        if (ret != 0){
+            perror("smash error: alarm failed");
+            exit(0);
+        }
+    }
+
+    void killAlarmedProcess(){
+        TimeoutEntry* min_timeout = timeout_list->front();
+        pid_t pid_to_kill = min_timeout->getPid();
+        std::cout << "pid is" << min_timeout->getPid() << std::endl;
+        std::cout << "smash: " << min_timeout->getCmdLine() <<" timed out!" <<std::endl;
+        int ret = killpg(pid_to_kill,SIGKILL);
+        jobs_list->removeFinishedJobs();
+        if (ret != 0){
+            perror("smash error: kill failed");
+        }
+        SetAlarm();
+    }
 };
 
+class BuiltInCommand : public Command {
+public:
+    BuiltInCommand(const char* cmd_line):Command(cmd_line){};
+    virtual ~BuiltInCommand() {}
+};
 class ShowPidCommand : public BuiltInCommand {
 public:
     ShowPidCommand(const char* cmd_line): BuiltInCommand(cmd_line){};
@@ -433,7 +509,26 @@ public:
     //void prepare() override;
     //void cleanup() override;
 };
-
+class TimeoutCommand:public Command{
+    SmallShell* smash;
+    JobsList* jobs_list;
+    JobsList* in_fg;
+    std::list<TimeoutEntry*>* timeout_list;
+    const char* cmd_to_exe;
+    const char* cmd_line;
+    int duration;
+public:
+    TimeoutCommand(const char* cmd_line, char** args, std::list<TimeoutEntry*>* timeout_list, SmallShell* smash, JobsList* jobs_list, JobsList* in_fg): Command(cmd_line),cmd_line(cmd_line), timeout_list(timeout_list), smash(smash), jobs_list(jobs_list), in_fg(in_fg){
+        duration = std::stoi(std::string(args[1]));
+        std::string str1(args[2]);
+        std::string str2 (" ");
+        std::string str3(args[3]);
+        std::string full(str1+str2+str3);
+        cmd_to_exe = full.c_str();
+    };
+    virtual ~TimeoutCommand() {}
+    void execute() override;
+};
 
 
 

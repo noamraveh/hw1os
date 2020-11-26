@@ -171,9 +171,12 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
      else if (cmd_s.find("quit") == 0){
          return new QuitCommand(cmd_line,cmd_args,jobs_list);
      }
-     else {
+    else if (cmd_s.find("timeout") == 0) {
+        return new TimeoutCommand(cmd_line, cmd_args, timeout_list, this, jobs_list, in_fg);
+    }
+    else {
          return new ExternalCommand(cmd_line,jobs_list,in_fg); //TODO:External command
-     }
+    }
 }
 
 void SmallShell::executeCommand(const char *cmd_line) {
@@ -232,7 +235,7 @@ void JobsList::killAllJobs() {
     jobs_list.clear();
 }
 void JobsList::removeFinishedJobs() {
-    std::vector<JobEntry*> to_remove;
+    std::list<JobEntry*> to_remove;
 
     for (auto job:jobs_list){
         if(waitpid(job->getProcessId(),nullptr,WNOHANG) > 0){
@@ -419,6 +422,7 @@ void KillCommand::execute() {
 }
 
 void ForegroundCommand::execute() {
+    jobs_list->removeFinishedJobs();
     jobs_list->updateIdInFg(-1);
     in_fg->updateIdInFg(-1);
     if(no_args){
@@ -470,6 +474,7 @@ void ForegroundCommand::execute() {
 }
 
 void BackgroundCommand::execute() {
+    jobs_list->removeFinishedJobs();
     if(no_args) {
         int lastStoppedId;
         if (!jobs_list->getLastStoppedJob(&lastStoppedId)) {
@@ -649,4 +654,58 @@ void PipeCommand::execute() {
 }
 
 
+void TimeoutCommand::execute() {
+    /*char* cmd = (char*)malloc(sizeof(cmd_line)+1);
+    strcpy(cmd,cmd_line);
+    std::string str(cmd);
+    int first_num_index = str.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ");
+    std::string str1(cmd + first_num_index);
+    int command_index = str1.find_first_not_of("0123456789 ");
+    std::string str2(cmd + first_num_index + command_index);
+    char* parsed_cmd_line = (char *) malloc(sizeof(cmd + first_num_index + command_index) + 1);
+    strcpy(parsed_cmd_line, str2.c_str());
+    //parsed_cmd_line holds process cmd_line to send to external
+     */
 
+    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
+    strcpy(un_const_cmd_line,cmd_to_exe);
+    char arg0[] = "/bin/bash";
+    char arg1[] = "-c";
+    _removeBackgroundSign(un_const_cmd_line);
+    //un_const = ex command without sign (send to bash)
+    //parsed = ex command with sign ( add to jobs list)
+    char* args[] = {arg0,arg1,un_const_cmd_line,nullptr};
+    pid_t child_pid = fork();
+    if (child_pid == -1){
+        perror("smash error: fork failed");
+        exit(0);
+    }
+    else if(child_pid > 0){
+        char* modified_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
+        strcpy(modified_cmd_line,cmd_to_exe);
+        _removeBackgroundSign(modified_cmd_line);
+        int diff = strcmp(cmd_to_exe,modified_cmd_line);
+        TimeoutEntry* timeout_entry = new TimeoutEntry(cmd_line,duration,child_pid);
+        timeout_list->push_back(timeout_entry);
+        smash->SetAlarm();
+        if (diff){
+            int new_job_id;
+            jobs_list->addJob(cmd_line,child_pid,-1,&new_job_id,false);
+        }
+        if(!_isBackgroundCommand(cmd_line)){
+            int new_job_id;
+            in_fg->clearJobs();
+            in_fg->updateIdInFg(0);
+            jobs_list->updateIdInFg(0);
+            in_fg->addJob(cmd_line,child_pid,-1,&new_job_id,false);
+            in_fg->updateIdInFg(new_job_id);
+            jobs_list->updateIdInFg(new_job_id);
+            waitpid(child_pid, nullptr,WUNTRACED);
+        }
+    }
+    else{
+        setpgrp();
+        execv("/bin/bash",args);
+    }
+
+}

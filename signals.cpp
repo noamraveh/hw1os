@@ -14,7 +14,9 @@ void ctrlCHandler(int sig_num) {
 }
 
 void alarmHandler(int sig_num) {
-  // TODO: Add your implementation
-    exit(1);
+    if (!SmallShell::getInstance().alarmListEmpty()){
+        std::cout << "smash: got an alarm" << std::endl;
+        SmallShell::getInstance().killAlarmedProcess();
+    }
 }
 
