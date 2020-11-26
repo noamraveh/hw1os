@@ -130,10 +130,10 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
      _parseCommandLine(cmd_line,cmd_args);
      bool builtIn = isBuiltIn(cmd_args[0]);
     if (cmd_s.find(">>")!=-1) {
-        return new RedirectionCommand(cmd_line,true,builtIn,jobs_list,this);
+        return new RedirectionCommand(cmd_line,true,builtIn,jobs_list,this,in_fg,cmd_args,timeout_list);
     }
     else if (cmd_s.find(">")!=-1) {
-        return new RedirectionCommand(cmd_line,false,builtIn,jobs_list,this);
+        return new RedirectionCommand(cmd_line,false,builtIn,jobs_list,this,in_fg,cmd_args,timeout_list);
     }
     else if (cmd_s.find("|&")!=-1) {
         return new PipeCommand(cmd_line,true);
@@ -554,10 +554,15 @@ void ExternalCommand::execute() {
 }
 
 void RedirectionCommand::execute() {
-    if (!built_in) {
-        ExternalCommand *cmd = new ExternalCommand(this->getCmdLine(), jobs_list);
-        cmd->execute();
-    } else {
+    Command* cmd;
+    string str(getCmdLine());
+    if (!built_in ) {
+        if (str.find("timeout") != 0) {
+            cmd = new ExternalCommand(this->getCmdLine(), jobs_list, in_fg);
+            cmd->execute();
+        }
+    }
+    else {
         if (to_append) {
             int fd = open(args[1], O_WRONLY | O_CREAT | O_APPEND, 0666);
             if (fd == -1) {
@@ -686,7 +691,9 @@ void TimeoutCommand::execute() {
         strcpy(modified_cmd_line,cmd_to_exe);
         _removeBackgroundSign(modified_cmd_line);
         int diff = strcmp(cmd_to_exe,modified_cmd_line);
-        TimeoutEntry* timeout_entry = new TimeoutEntry(cmd_line,duration,child_pid);
+        char* test_malloced = (char*)malloc(sizeof(cmd_line)+1);
+        strcpy(test_malloced,cmd_line);
+        TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid);
         timeout_list->push_back(timeout_entry);
         smash->SetAlarm();
         if (diff){

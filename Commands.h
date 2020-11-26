@@ -299,7 +299,6 @@ public:
         int duration = min_timeout->getDuration();
         int alarm_time = duration - (now - start);
         int ret = alarm(alarm_time);
-        std::cout<<"was set for " << alarm_time << " secs for" << min_timeout->getPid()<<  std::endl;
         if (ret != 0){
             perror("smash error: alarm failed");
             exit(0);
@@ -309,7 +308,6 @@ public:
     void killAlarmedProcess(){
         TimeoutEntry* min_timeout = timeout_list->front();
         pid_t pid_to_kill = min_timeout->getPid();
-        std::cout << "pid is " << min_timeout->getPid() << std::endl;
         std::cout << "smash: " << min_timeout->getCmdLine() <<" timed out!" <<std::endl;
         int ret = killpg(pid_to_kill,SIGKILL);
         timeout_list->remove(min_timeout);
@@ -496,18 +494,25 @@ class RedirectionCommand : public Command {
     char* args[2];
     bool to_append;
     bool built_in;
+    JobsList* in_fg;
+    std::list<TimeoutEntry*>* timeout_list;
+    char* cmd_args[20];
 public:
-    RedirectionCommand(const char* cmd_line, bool to_append, bool built_in, JobsList* jobs_list, SmallShell* smash):Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash){
+    RedirectionCommand(const char* cmd_line, bool to_append, bool built_in, JobsList* jobs_list, SmallShell* smash,JobsList* in_fg, char** cmd_args_in, std::list<TimeoutEntry*>* timeout_list)
+    :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list){
         char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
         strcpy(unconst_cmd_line,cmd_line);
         args[0] = strtok(unconst_cmd_line, ">");
         args[1] = strtok(nullptr, ">");
-        std::string argszero = std::string(args[0]);
-        argszero.erase(std::remove(argszero.begin(), argszero.end(), ' '), argszero.end());
-        strcpy(args[0], argszero.c_str());
+       /* std::string argszero = std::string(args[0]);
+        strcpy(args[0], argszero.c_str());*/
         std::string argsone = std::string(args[1]);
         argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
         strcpy(args[1], argsone.c_str());
+
+        for (int i=0;i<20;i++){
+            cmd_args[i] = cmd_args_in[i];
+        }
     };
     virtual ~RedirectionCommand() {}
     void execute() override;
@@ -519,7 +524,7 @@ class TimeoutCommand:public Command{
     JobsList* jobs_list;
     JobsList* in_fg;
     std::list<TimeoutEntry*>* timeout_list;
-    const char* cmd_to_exe;
+    char* cmd_to_exe;
     const char* cmd_line;
     int duration;
 public:
@@ -527,9 +532,16 @@ public:
         duration = std::stoi(std::string(args[1]));
         std::string str1(args[2]);
         std::string str2 (" ");
-        std::string str3(args[3]);
-        std::string full(str1+str2+str3);
-        cmd_to_exe = full.c_str();
+        std::string full(str1+str2);
+        int i = 3;
+        while (args[i]){
+            std::string str3(args[i]);
+            str3 = str3 + " ";
+            full.append(str3);
+            i++;
+        }
+        cmd_to_exe = (char*) malloc (sizeof(full.c_str())+1);
+        strcpy(cmd_to_exe,full.c_str());
     };
     virtual ~TimeoutCommand() {}
     void execute() override;
