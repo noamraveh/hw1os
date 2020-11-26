@@ -237,7 +237,7 @@ public:
         return t1_time_left < t2_time_left;
     }
      void clearFinishedTimeoutProcesses(){
-        /*std::vector<TimeoutEntry*> to_remove;
+        std::vector<TimeoutEntry*> to_remove;
 
         for (auto process:*timeout_list){
             if(waitpid(process->getPid(),nullptr,WNOHANG) > 0){
@@ -246,8 +246,7 @@ public:
         }
         for (auto process:to_remove){
             timeout_list->remove(process);
-        }*/
-        return;
+        }
     }
     bool alarmListEmpty(){
         return timeout_list->empty();
@@ -292,10 +291,12 @@ public:
         clearFinishedTimeoutProcesses();
         timeout_list->sort(cmp_alarms);
         TimeoutEntry* min_timeout = timeout_list->front();
-        int alarm_time = min_timeout->getDuration() - time(nullptr) + min_timeout->getTimeStamp();
-        if (alarm_time < 0 )
-            alarm_time = 0;
+        time_t now = time(nullptr);
+        time_t start = min_timeout->getTimeStamp();
+        int duration = min_timeout->getDuration();
+        int alarm_time = duration - (now - start);
         int ret = alarm(alarm_time);
+        std::cout<<"was set for " << alarm_time << " secs" << std::endl;
         if (ret != 0){
             perror("smash error: alarm failed");
             exit(0);
@@ -305,9 +306,10 @@ public:
     void killAlarmedProcess(){
         TimeoutEntry* min_timeout = timeout_list->front();
         pid_t pid_to_kill = min_timeout->getPid();
-        std::cout << "pid is" << min_timeout->getPid() << std::endl;
+        std::cout << "pid is " << min_timeout->getPid() << std::endl;
         std::cout << "smash: " << min_timeout->getCmdLine() <<" timed out!" <<std::endl;
         int ret = killpg(pid_to_kill,SIGKILL);
+        timeout_list->remove(min_timeout);
         jobs_list->removeFinishedJobs();
         if (ret != 0){
             perror("smash error: kill failed");

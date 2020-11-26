@@ -525,7 +525,8 @@ void ExternalCommand::execute() {
         perror("smash error: fork failed");
         exit(0);
     }
-    else if(child_pid > 0){
+    setpgrp();
+     if(child_pid > 0){
         char* modified_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
         strcpy(modified_cmd_line,cmd_line);
         _removeBackgroundSign(modified_cmd_line);
@@ -546,7 +547,6 @@ void ExternalCommand::execute() {
         }
     }
     else{
-        setpgrp();
         execv("/bin/bash",args);
 
     }
@@ -680,7 +680,8 @@ void TimeoutCommand::execute() {
         perror("smash error: fork failed");
         exit(0);
     }
-    else if(child_pid > 0){
+    setpgrp();
+    if(child_pid > 0){
         char* modified_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
         strcpy(modified_cmd_line,cmd_to_exe);
         _removeBackgroundSign(modified_cmd_line);
@@ -704,7 +705,6 @@ void TimeoutCommand::execute() {
         }
     }
     else{
-        setpgrp();
         execv("/bin/bash",args);
     }
 
