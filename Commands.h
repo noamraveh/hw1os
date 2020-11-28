@@ -35,31 +35,6 @@ public:
     // TODO: Add your extra methods if needed
 };
 
-
-
-
-class PipeCommand : public Command {
-    char* args[2];
-    bool err;
-public:
-    PipeCommand( const char* cmd_line, bool err):Command(cmd_line),err(err){
-        char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
-        strcpy(unconst_cmd_line,cmd_line);
-        if (err){
-            args[0] = strtok(unconst_cmd_line, "|&");
-            args[1] = strtok(nullptr, "|&");
-        }
-        else{
-            args[0] = strtok(unconst_cmd_line, "|");
-            args[1] = strtok(nullptr, "|");
-        }
-
-    };
-    virtual ~PipeCommand() {}
-    void execute() override;
-};
-
-
 /*
 class CommandsHistory {
  protected:
@@ -530,6 +505,16 @@ public:
         strcpy(cmd_to_exe,full.c_str());
     };
     virtual ~TimeoutCommand() {}
+    void execute() override;
+};
+
+class PipeCommand : public Command {
+    char* args[2];
+    bool err;
+    SmallShell* smash;
+public:
+    PipeCommand( const char* cmd_line, bool err, SmallShell* smash);
+    virtual ~PipeCommand() {}
     void execute() override;
 };
 

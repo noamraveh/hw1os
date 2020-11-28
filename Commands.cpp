@@ -136,10 +136,10 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
         return new RedirectionCommand(cmd_line,false,builtIn,jobs_list,this,in_fg,cmd_args,timeout_list);
     }
     else if (cmd_s.find("|&")!=-1) {
-        return new PipeCommand(cmd_line,true);
+        return new PipeCommand(cmd_line,true,this);
     }
     else if (cmd_s.find("|")!=-1) {
-        return new PipeCommand(cmd_line,false);
+        return new PipeCommand(cmd_line,false,this);
     }
      else if (cmd_s.find("pwd") == 0) {
          return new GetCurrDirCommand(cmd_line,this);
@@ -552,6 +552,29 @@ void ExternalCommand::execute() {
     }
 
 }
+RedirectionCommand::RedirectionCommand(const char *cmd_line, bool to_append, bool built_in, JobsList *jobs_list,
+                                       SmallShell *smash, JobsList *in_fg, char **cmd_args_in,
+                                       std::list<TimeoutEntry *> *timeout_list) :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list) {
+    is_bg = _isBackgroundCommand(cmd_line);
+    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    strcpy(unconst_cmd_line,cmd_line);
+    args[0] = strtok(unconst_cmd_line, ">");
+    args[1] = strtok(nullptr, ">");
+    /* std::string argszero = std::string(args[0]);
+     strcpy(args[0], argszero.c_str());*/
+    std::string argsone = std::string(args[1]);
+    argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
+    strcpy(args[1], argsone.c_str());
+
+    if (is_bg) {
+        _removeBackgroundSign(args[1]);
+    }
+
+    for (int i=0;i<20;i++){
+        cmd_args[i] = cmd_args_in[i];
+    }
+}
+
 void RedirectionCommand::execute() {
     if (!built_in) {
         Command* cmd;
@@ -619,73 +642,9 @@ void RedirectionCommand::execute() {
     }
 }
 
-RedirectionCommand::RedirectionCommand(const char *cmd_line, bool to_append, bool built_in, JobsList *jobs_list,
-                                       SmallShell *smash, JobsList *in_fg, char **cmd_args_in,
-                                       std::list<TimeoutEntry *> *timeout_list) :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list) {
-    is_bg = _isBackgroundCommand(cmd_line);
-    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
-    strcpy(unconst_cmd_line,cmd_line);
-    args[0] = strtok(unconst_cmd_line, ">");
-    args[1] = strtok(nullptr, ">");
-    /* std::string argszero = std::string(args[0]);
-     strcpy(args[0], argszero.c_str());*/
-    std::string argsone = std::string(args[1]);
-    argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
-    strcpy(args[1], argsone.c_str());
-
-    if (is_bg) {
-        _removeBackgroundSign(args[1]);
-    }
-
-    for (int i=0;i<20;i++){
-        cmd_args[i] = cmd_args_in[i];
-    }
-}
-
-void PipeCommand::execute() {
-    int fd[2];
-    int ret_val = pipe(fd);
-    if (ret_val == -1) {
-        perror("smash error: pipe failed");
-        exit(0);
-    }
-    pid_t pid1 = fork();
-    if (pid1 < 0) {
-        perror("smash error: fork failed");
-        exit(0);
-    }
-    if (pid1 == 0) { // first child
-        if (err) {
-            dup2(fd[1], 2);
-        } else {
-            dup2(fd[1], 1);
-        }
-        if (close(fd[0]) == -1 || close(fd[1]) == -1) {
-            perror("smash error : close failed");
-            exit(0);
-        }
-
-        //execv(....)// TODO: fill
-    }
-    pid_t pid2 = fork();
-    if (pid1 < 0) {
-        perror("smash error: fork failed");
-        exit(0);
-    }
-    if (pid2 == 0) { //second child
-        dup2(fd[0], 0);
-        close(fd[0]);
-        close(fd[1]);
-        //execv(....)// TODO: fill
-    }
-    close(fd[0]);
-    close(fd[1]);
-}
-
-
 void TimeoutCommand::execute() {
 
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
+    char* un_const_cmd_line = (char*)malloc(200);
     strcpy(un_const_cmd_line,cmd_to_exe);
     char arg0[] = "/bin/bash";
     char arg1[] = "-c";
@@ -700,11 +659,11 @@ void TimeoutCommand::execute() {
     }
     setpgrp();
     if(child_pid > 0){
-        char* modified_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
+        char* modified_cmd_line = (char*)malloc(200);
         strcpy(modified_cmd_line,cmd_to_exe);
         _removeBackgroundSign(modified_cmd_line);
         int diff = strcmp(cmd_to_exe,modified_cmd_line);
-        char* test_malloced = (char*)malloc(sizeof(cmd_line)+1);
+        char* test_malloced = (char*)malloc(200);
         strcpy(test_malloced,cmd_line);
         TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid);
         timeout_list->push_back(timeout_entry);
@@ -728,4 +687,105 @@ void TimeoutCommand::execute() {
         execv("/bin/bash",args);
     }
 
+}
+
+PipeCommand::PipeCommand(const char *cmd_line, bool err, SmallShell* smash):Command(cmd_line),err(err),smash(smash){
+    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    strcpy(unconst_cmd_line,cmd_line);
+    if (err){
+        args[0] = strtok(unconst_cmd_line, "|&");
+        args[1] = strtok(nullptr, "|&");
+    }
+    else{
+        args[0] = strtok(unconst_cmd_line, "|");
+        args[1] = strtok(nullptr, "|");
+    }
+    bool is_bg = _isBackgroundCommand(cmd_line);
+    if(is_bg){
+        if(! isBuiltIn(args[0])){
+            string str(args[0]);
+            str = str + " &";
+            strcpy(args[0],str.c_str());
+        }
+    }
+}
+void PipeCommand::execute() {
+    int output = STDOUT_FILENO;
+    if (err){
+        output = STDERR_FILENO;
+    }
+    int fd[2];
+    int ret_val = pipe(fd);
+    if(ret_val != 0){
+        perror("smash error: pipe failed");
+        exit(0);
+    }
+    pid_t child1 = fork();
+    if(child1 == -1){
+        perror("smash error: fork failed");
+        exit(0);
+    }
+    if(!child1){
+        int ret_val = dup2(fd[1],output);
+        if(ret_val == -1){
+            perror("smash error: dup2 failed");
+            exit(0);
+        }
+        ret_val = close(fd[0]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        ret_val = close(fd[1]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        Command* cmd = smash->CreateCommand(args[0]);
+        if(cmd) {
+            cmd->execute();
+            delete cmd;
+        }
+    }
+    pid_t child2 = fork();
+    if(child2 == -1){
+        perror("smash error: fork failed");
+        exit(0);
+    }
+    if(!child2){
+        int ret_val = dup2(fd[0],STDIN_FILENO);
+        if(ret_val == -1){
+            perror("smash error: dup2 failed");
+            exit(0);
+        }
+        ret_val = close(fd[0]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        ret_val = close(fd[1]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        Command* cmd = smash->CreateCommand(args[1]);
+        if(cmd) {
+            cmd->execute();
+            delete cmd;
+        }
+    }
+    else{
+        ret_val = close(fd[0]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        ret_val = close(fd[1]);
+        if(ret_val == -1){
+            perror("smash error: close failed");
+            exit(0);
+        }
+        waitpid(child1,nullptr,WUNTRACED);
+        waitpid(child2,nullptr,WUNTRACED);
+    }
 }
