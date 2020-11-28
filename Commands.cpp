@@ -419,12 +419,13 @@ void KillCommand::execute() {
         return;
     }
     else{
-        int ret_val = kill(pid,sig_num);
-        if (ret_val != 0){
+        int ret_val = killpg(pid,sig_num);
+        if (ret_val == -1 ){
             perror("smash error: kill failed");
             return;
         }
         else{
+            jobs_list->removeFinishedJobs();
             cout<< "signal number " << sig_num << " was sent to pid " << pid <<endl;
         }
     }
@@ -488,7 +489,7 @@ void BackgroundCommand::execute() {
             cout << "smash error: bg: there is no stopped job to resume" << endl;
         } else {
             int pid = jobs_list->getJobById(lastStoppedId)->getProcessId();
-            cout << jobs_list->getJobById(job_id)->getOrgCmdLine() << " : " << pid << endl;
+            cout << jobs_list->getJobById(lastStoppedId)->getOrgCmdLine() << " : " << pid << endl;
             killpg(pid, SIGCONT);
             jobs_list->resumeJob(job_id);
         }

@@ -13,6 +13,7 @@
 #include "algorithm"
 #include <cmath>
 #include <sys/wait.h>
+#include <ctype.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -249,13 +250,11 @@ public:
             int ret_val = killpg(pid, SIGSTOP);
             if (ret_val != 0){
                 perror("smash error: kill failed");
-                exit(0);
+                return;
             }
             std::cout << "smash: process " << pid << " was stopped" << std::endl;
+            in_fg->clearJobs();
         }
-        in_fg->updateIdInFg(0);
-        jobs_list->updateIdInFg(0);
-        //add error
     }
 
     void KillFG(){
@@ -266,12 +265,12 @@ public:
             int ret_val = killpg(pid, SIGKILL);
             if (ret_val != 0){
                 perror("smash error: kill failed");
-                exit(0);
+                return;
         }
             std::cout << "smash: process " << pid << " was killed" << std::endl;
         }
-        in_fg->updateIdInFg(0);
-        jobs_list->updateIdInFg(0);
+        in_fg->clearJobs();
+
     }
 
     void SetAlarm(){
@@ -288,7 +287,7 @@ public:
         int ret = alarm(alarm_time);
         if (ret != 0){
             perror("smash error: alarm failed");
-            exit(0);
+            return;
         }
     }
 
@@ -301,6 +300,7 @@ public:
         jobs_list->removeFinishedJobs();
         if (ret != 0){
             perror("smash error: kill failed");
+            return;
         }
         SetAlarm();
     }
@@ -385,24 +385,52 @@ class KillCommand : public BuiltInCommand {
     bool valid_input;
  public:
   KillCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), valid_input(true){
-      if (!cmd_args[1]){
+      bool invalid_job;
+      if (!cmd_args[1] || *cmd_args[1] != '-' ){
           valid_input = false;
           return;
       }
-      else{
-          sig_num = std::stoi(std::string(cmd_args[1]+1));
-          if (!cmd_args[2]){
+      else {
+          //check if signum is legit
+          std::string str(cmd_args[1]);
+          for (int i = 1;i<str.length(); i++){
+              if (!isdigit(*(cmd_args[1] + i)))
+                  valid_input = false;
+          }
+          if (valid_input)
+              sig_num = std::stoi(std::string(cmd_args[1] + 1));
+
+          if (!cmd_args[2]) {
               valid_input = false;
               return;
-          }
-          else{
-              job_id = std::stoi(std::string(cmd_args[2]));
-              if(cmd_args[3] != nullptr){
+          } else {
+              //check if job is negative
+              bool is_neg = *cmd_args[2] == '-';
+              //check if job is legit
+              std::string str(cmd_args[2]);
+              for (int i = 1;i<str.length(); i++){
+                  if (!isdigit(*(cmd_args[2] + i))) {
+                      valid_input = false;
+                      invalid_job = true;
+                  }
+              }
+
+              if (!invalid_job){
+                  if (is_neg) {
+                      job_id = std::stoi(std::string(cmd_args[2] + 1));
+                      job_id = job_id * -1;
+                  }
+                  else
+                    job_id = std::stoi(std::string(cmd_args[2]));
+
+              }
+
+              if (cmd_args[3] != nullptr) {
                   valid_input = false;
-             }
+              }
           }
       }
-  };
+  }
 
   virtual ~KillCommand() {}
   void execute() override;
