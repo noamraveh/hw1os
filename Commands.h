@@ -497,23 +497,9 @@ class RedirectionCommand : public Command {
     JobsList* in_fg;
     std::list<TimeoutEntry*>* timeout_list;
     char* cmd_args[20];
+    bool is_bg;
 public:
-    RedirectionCommand(const char* cmd_line, bool to_append, bool built_in, JobsList* jobs_list, SmallShell* smash,JobsList* in_fg, char** cmd_args_in, std::list<TimeoutEntry*>* timeout_list)
-    :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list){
-        char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
-        strcpy(unconst_cmd_line,cmd_line);
-        args[0] = strtok(unconst_cmd_line, ">");
-        args[1] = strtok(nullptr, ">");
-       /* std::string argszero = std::string(args[0]);
-        strcpy(args[0], argszero.c_str());*/
-        std::string argsone = std::string(args[1]);
-        argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
-        strcpy(args[1], argsone.c_str());
-
-        for (int i=0;i<20;i++){
-            cmd_args[i] = cmd_args_in[i];
-        }
-    };
+    RedirectionCommand(const char* cmd_line, bool to_append, bool built_in, JobsList* jobs_list, SmallShell* smash,JobsList* in_fg, char** cmd_args_in, std::list<TimeoutEntry*>* timeout_list);
     virtual ~RedirectionCommand() {}
     void execute() override;
     //void prepare() override;

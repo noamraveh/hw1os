@@ -552,15 +552,16 @@ void ExternalCommand::execute() {
     }
 
 }
-
 void RedirectionCommand::execute() {
-    Command* cmd;
-    string str(getCmdLine());
-    if (!built_in ) {
-        if (str.find("timeout") != 0) {
-            cmd = new ExternalCommand(this->getCmdLine(), jobs_list, in_fg);
-            cmd->execute();
+    if (!built_in) {
+        Command* cmd;
+        string str(getCmdLine());
+        if (str.find("timeout") == 0){
+            cmd = new TimeoutCommand(this->getCmdLine(),cmd_args, timeout_list, smash, jobs_list, in_fg);
         }
+        else
+            cmd = new ExternalCommand(this->getCmdLine(), jobs_list,in_fg);
+        cmd->execute();
     }
     else {
         if (to_append) {
@@ -618,6 +619,29 @@ void RedirectionCommand::execute() {
     }
 }
 
+RedirectionCommand::RedirectionCommand(const char *cmd_line, bool to_append, bool built_in, JobsList *jobs_list,
+                                       SmallShell *smash, JobsList *in_fg, char **cmd_args_in,
+                                       std::list<TimeoutEntry *> *timeout_list) :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list) {
+    is_bg = _isBackgroundCommand(cmd_line);
+    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    strcpy(unconst_cmd_line,cmd_line);
+    args[0] = strtok(unconst_cmd_line, ">");
+    args[1] = strtok(nullptr, ">");
+    /* std::string argszero = std::string(args[0]);
+     strcpy(args[0], argszero.c_str());*/
+    std::string argsone = std::string(args[1]);
+    argsone.erase(std::remove(argsone.begin(), argsone.end(), ' '), argsone.end());
+    strcpy(args[1], argsone.c_str());
+
+    if (is_bg) {
+        _removeBackgroundSign(args[1]);
+    }
+
+    for (int i=0;i<20;i++){
+        cmd_args[i] = cmd_args_in[i];
+    }
+}
+
 void PipeCommand::execute() {
     int fd[2];
     int ret_val = pipe(fd);
@@ -660,17 +684,6 @@ void PipeCommand::execute() {
 
 
 void TimeoutCommand::execute() {
-    /*char* cmd = (char*)malloc(sizeof(cmd_line)+1);
-    strcpy(cmd,cmd_line);
-    std::string str(cmd);
-    int first_num_index = str.find_first_not_of("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz ");
-    std::string str1(cmd + first_num_index);
-    int command_index = str1.find_first_not_of("0123456789 ");
-    std::string str2(cmd + first_num_index + command_index);
-    char* parsed_cmd_line = (char *) malloc(sizeof(cmd + first_num_index + command_index) + 1);
-    strcpy(parsed_cmd_line, str2.c_str());
-    //parsed_cmd_line holds process cmd_line to send to external
-     */
 
     char* un_const_cmd_line = (char*)malloc(sizeof(cmd_to_exe)+1);
     strcpy(un_const_cmd_line,cmd_to_exe);
