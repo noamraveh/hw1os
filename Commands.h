@@ -13,7 +13,6 @@
 #include "algorithm"
 #include <cmath>
 #include <sys/wait.h>
-#include <ctype.h>
 
 #define COMMAND_ARGS_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -128,12 +127,12 @@ private:
           // TODO: Add your data members
   };
 
-  std::list<JobEntry*> jobs_list;
+  std::list<JobEntry*>* jobs_list;
   int num_jobs;
   int id_in_fg;
     // TODO: Add your data members
  public:
-  JobsList(): num_jobs(0),id_in_fg(0){};
+  JobsList(): jobs_list(new std::list<JobEntry*>),num_jobs(0),id_in_fg(0){};
   ~JobsList(){};
   void addJob(const char* cmd_line,pid_t pid, int cur_job_id,int* new_id, bool stopped = false);
   void printJobsList();
@@ -146,17 +145,17 @@ private:
   int getPid(int job_id);
   bool isEmpty();
   int getMaxJob(){
-      if (jobs_list.empty())
+      if (jobs_list->empty())
           return 0;
       removeFinishedJobs();
-      jobs_list.sort(compareJobEntries);
-      return jobs_list.back()->getJobId();
+      jobs_list->sort(compareJobEntries);
+      return jobs_list->back()->getJobId();
   }
   void resumeJob(int job_id);
   int getNumJobs();
   void clearJobs(){
-      if (!jobs_list.empty())
-        jobs_list.clear();
+      if (!jobs_list->empty())
+        jobs_list->clear();
       num_jobs = 0;
   }
   void updateIdInFg(int job_id){
@@ -164,13 +163,13 @@ private:
   }
 
   int getJobId(){
-      return jobs_list.front()->getJobId();
+      return jobs_list->front()->getJobId();
   }
   int getFGPid(){
-      return jobs_list.front()->getProcessId();
+      return jobs_list->front()->getProcessId();
   }
   const char* getFGCmdLine(){
-      return jobs_list.front()->getOrgCmdLine();
+      return jobs_list->front()->getOrgCmdLine();
   }
   static bool compareJobEntries(JobEntry* j1, JobEntry* j2){
       return j1->getJobId() < j2->getJobId();
@@ -243,6 +242,8 @@ public:
     }
     void StopFG() {
         std::cout << "smash: got ctrl-Z" << std::endl;
+        jobs_list->removeFinishedJobs();
+        in_fg->removeFinishedJobs();
         if (!in_fg->isEmpty()){
             pid_t pid = in_fg->getFGPid();
             int new_job_id;
@@ -250,26 +251,35 @@ public:
             int ret_val = killpg(pid, SIGSTOP);
             if (ret_val != 0){
                 perror("smash error: kill failed");
+                in_fg->clearJobs();
                 return;
             }
             std::cout << "smash: process " << pid << " was stopped" << std::endl;
             in_fg->clearJobs();
         }
+
     }
 
     void KillFG(){
+        jobs_list->removeFinishedJobs();
+        in_fg->removeFinishedJobs();
         std::cout << "smash: got ctrl-C" << std::endl;
-
         if (!in_fg->isEmpty()){
+            int cur_max = SmallShell::getInstance().getOverallMax();
+            int job_id = in_fg->getJobId();
+            if (cur_max == job_id)
+                SmallShell::getInstance().updateOverallMax(jobs_list->getMaxJob());
             pid_t pid = in_fg->getFGPid();
             int ret_val = killpg(pid, SIGKILL);
             if (ret_val != 0){
                 perror("smash error: kill failed");
+                in_fg->clearJobs();
                 return;
-        }
+            }
             std::cout << "smash: process " << pid << " was killed" << std::endl;
+            //in_fg->clearJobs();
         }
-        in_fg->clearJobs();
+        jobs_list->removeFinishedJobs();
 
     }
 
@@ -385,52 +395,24 @@ class KillCommand : public BuiltInCommand {
     bool valid_input;
  public:
   KillCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list):BuiltInCommand(cmd_line), jobs_list(jobs_list), valid_input(true){
-      bool invalid_job;
-      if (!cmd_args[1] || *cmd_args[1] != '-' ){
+      if (!cmd_args[1]){
           valid_input = false;
           return;
       }
-      else {
-          //check if signum is legit
-          std::string str(cmd_args[1]);
-          for (int i = 1;i<str.length(); i++){
-              if (!isdigit(*(cmd_args[1] + i)))
-                  valid_input = false;
-          }
-          if (valid_input)
-              sig_num = std::stoi(std::string(cmd_args[1] + 1));
-
-          if (!cmd_args[2]) {
+      else{
+          sig_num = std::stoi(std::string(cmd_args[1]+1));
+          if (!cmd_args[2]){
               valid_input = false;
               return;
-          } else {
-              //check if job is negative
-              bool is_neg = *cmd_args[2] == '-';
-              //check if job is legit
-              std::string str(cmd_args[2]);
-              for (int i = 1;i<str.length(); i++){
-                  if (!isdigit(*(cmd_args[2] + i))) {
-                      valid_input = false;
-                      invalid_job = true;
-                  }
-              }
-
-              if (!invalid_job){
-                  if (is_neg) {
-                      job_id = std::stoi(std::string(cmd_args[2] + 1));
-                      job_id = job_id * -1;
-                  }
-                  else
-                    job_id = std::stoi(std::string(cmd_args[2]));
-
-              }
-
-              if (cmd_args[3] != nullptr) {
+          }
+          else{
+              job_id = std::stoi(std::string(cmd_args[2]));
+              if(cmd_args[3] != nullptr){
                   valid_input = false;
-              }
+             }
           }
       }
-  }
+  };
 
   virtual ~KillCommand() {}
   void execute() override;
