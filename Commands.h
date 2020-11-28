@@ -132,7 +132,7 @@ private:
   int id_in_fg;
     // TODO: Add your data members
  public:
-  JobsList(): num_jobs(0){};
+  JobsList(): num_jobs(0),id_in_fg(0){};
   ~JobsList(){};
   void addJob(const char* cmd_line,pid_t pid, int cur_job_id,int* new_id, bool stopped = false);
   void printJobsList();
@@ -145,16 +145,16 @@ private:
   int getPid(int job_id);
   bool isEmpty();
   int getMaxJob(){
+      if (jobs_list.empty())
+          return 0;
       removeFinishedJobs();
-      if (jobs_list.size() == 0){
-          return fmax(0,id_in_fg);
-      }
-      return fmax(jobs_list.back()->getJobId(),id_in_fg);
+      jobs_list.sort(compareJobEntries);
+      return jobs_list.back()->getJobId();
   }
   void resumeJob(int job_id);
   int getNumJobs();
   void clearJobs(){
-      if (jobs_list.size() != 0)
+      if (!jobs_list.empty())
         jobs_list.clear();
       num_jobs = 0;
   }
@@ -186,9 +186,10 @@ private:
     JobsList* jobs_list;
     JobsList* in_fg;
     std::list<TimeoutEntry*>* timeout_list;
+    unsigned int overall_max_job_id;
     // TODO: Add your data members
 public:
-    SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"),timeout_list(new std::list<TimeoutEntry*>){
+    SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"),timeout_list(new std::list<TimeoutEntry*>),overall_max_job_id(0){
         cur_dir =  get_current_dir_name();
         prev_dir = get_current_dir_name();
         smash_pid = getpid();
@@ -201,6 +202,12 @@ public:
     char* getDir();
     char* getPrevDir();
     void updateDirs();
+    void updateOverallMax(int new_max){
+        overall_max_job_id = new_max;
+    }
+    int getOverallMax(){
+        return overall_max_job_id;
+    }
     Command *CreateCommand(const char* cmd_line);
     void executeCommand(const char *cmd_line);
     static SmallShell &getInstance() // make SmallShell singleton
