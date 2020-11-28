@@ -91,7 +91,7 @@ void goBack(char* current){
 // TODO: Add your implementation for classes in Commands.h 
 bool isBuiltIn(char* cmd_name){
     std::string cmd(cmd_name);
-    char* commands[] = {"chprompt","ls", "showpid", "pwd","cd","jobs","kill","fg","bg","quit"};
+    string commands[] = {"chprompt","ls", "showpid", "pwd","cd","jobs","kill","fg","bg","quit"};
     for (int i = 0 ; i < NUM_BUILT_IN_CMD ; i++){
         if (cmd.find(commands[i])!=-1){
             return true;
@@ -151,7 +151,7 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
          return new ShowFilesCommand(cmd_line,this);
       }
      else if (cmd_s.find("showpid") == 0){
-         return new ShowPidCommand(cmd_line);
+         return new ShowPidCommand(cmd_line,this);
      }
      else if (cmd_s.find("cd") == 0){
          return new ChangeDirCommand(cmd_line,cmd_args,this);
@@ -230,7 +230,7 @@ void JobsList::killAllJobs() {
         int ret_val = kill(job->getProcessId(),SIGKILL);
         if(ret_val != 0)
             perror("smash error: kill failed");
-        exit(0);
+            return;
     }
     jobs_list.clear();
 }
@@ -305,7 +305,7 @@ int JobsList::getNumJobs() {
 }
 
 void ShowPidCommand::execute() {
-    cout << "smash pid is " << getpid() << endl;
+    cout << "smash pid is " << smash->getSmashPid() << endl;
 }
 
 void ChangePromptCommand::execute() {
@@ -326,14 +326,14 @@ void ChangeDirCommand::execute() {
     else{
         char* dash = "-";
         if(*new_path == *dash){
-            if(smash->getDir() == smash->getPrevDir()){
+            if(strcmp(smash->getDir(),smash->getPrevDir()) == 0){
                 cout << "smash error: cd: OLDPWD not set" << endl;
             }
             else{
                 int ret_val = chdir(smash->getPrevDir());
                 if (ret_val != 0){
                     perror("smash error: chdir failed");
-                    exit(0);
+                    return;
                 }
                 else{
                     smash->updateDirs();
@@ -350,7 +350,7 @@ void ChangeDirCommand::execute() {
             free(current);
             if (ret_val != 0){
                 perror("smash error: chdir failed");
-                exit(0);
+                return;
             }
             else{
                 smash->updateDirs();
@@ -360,7 +360,7 @@ void ChangeDirCommand::execute() {
         int retVal = chdir(new_path);
             if (retVal != 0){
                 perror("smash error: chdir failed");
-                exit(0);
+                return;
             }
             else{
                 smash->updateDirs();
@@ -377,7 +377,7 @@ void ShowFilesCommand::execute() {
     n = scandir(".", &namelist, NULL, alphasort);
     if (n < 0){
         perror("smash error:scandir failed");
-        exit(0);
+        return;
     }
     else{
         while (i < n) {
@@ -413,7 +413,7 @@ void KillCommand::execute() {
         int ret_val = kill(pid,sig_num);
         if (ret_val != 0){
             perror("smash error: kill failed");
-            exit(0);
+            return;
         }
         else{
             cout<< "signal number " << sig_num << " was sent to pid " << pid <<endl;
@@ -523,7 +523,7 @@ void ExternalCommand::execute() {
     pid_t child_pid = fork();
     if (child_pid == -1){
         perror("smash error: fork failed");
-        exit(0);
+        return;
     }
     setpgrp();
      if(child_pid > 0){
@@ -545,6 +545,7 @@ void ExternalCommand::execute() {
             jobs_list->updateIdInFg(new_job_id);
             waitpid(child_pid, nullptr,WUNTRACED);
         }
+        free(modified_cmd_line);
     }
     else{
         execv("/bin/bash",args);
@@ -591,52 +592,52 @@ void RedirectionCommand::execute() {
             int fd = open(args[1], O_WRONLY | O_CREAT | O_APPEND, 0666);
             if (fd == -1) {
                 perror("smash error: open failed");
-                exit(0);
+                return;
             }
             int old_std = dup(1);
             if (old_std == -1) {
                 perror("smash error: dup failed");
-                exit(0);
+                return;
             }
             if (dup2(fd, 1) == -1) {
                 perror("smash error: dup2 failed");
-                exit(0);
+                return;
             }
             smash->executeCommand(args[0]);
             int ret_val = close(fd);
             if (ret_val) {
                 perror("smash error: close failed");
-                exit(0);
+                return;
             }
             if (dup2(old_std, 1) == -1) {
                 perror("smash error: dup2 failed");
-                exit(0);
+                return;
             }
 
         } else {
             int fd = open(args[1], O_WRONLY | O_CREAT | O_TRUNC, 0666);
             if (fd == -1) {
                 perror("smash error: open failed");
-                exit(0);
+                return;
             }
             int old_std = dup(1);
             if (old_std == -1) {
                 perror("smash error: dup failed");
-                exit(0);
+                return;
             }
             if (dup2(fd, 1) == -1) {
                 perror("smash error: dup2 failed");
-                exit(0);
+                return;
             }
             smash->executeCommand(args[0]);
             int ret_val = close(fd);
             if (ret_val) {
                 perror("smash error: close failed");
-                exit(0);
+                return;
             }
             if (dup2(old_std, 1) == -1) {
                 perror("smash error: dup2 failed");
-                exit(0);
+                return;
             }
         }
     }
@@ -655,7 +656,7 @@ void TimeoutCommand::execute() {
     pid_t child_pid = fork();
     if (child_pid == -1){
         perror("smash error: fork failed");
-        exit(0);
+        return;
     }
     setpgrp();
     if(child_pid > 0){
@@ -682,6 +683,7 @@ void TimeoutCommand::execute() {
             jobs_list->updateIdInFg(new_job_id);
             waitpid(child_pid, nullptr,WUNTRACED);
         }
+        free(modified_cmd_line);
     }
     else{
         execv("/bin/bash",args);
@@ -718,72 +720,75 @@ void PipeCommand::execute() {
     int ret_val = pipe(fd);
     if(ret_val != 0){
         perror("smash error: pipe failed");
-        exit(0);
+        return;
     }
     pid_t child1 = fork();
     if(child1 == -1){
         perror("smash error: fork failed");
-        exit(0);
+        return;
     }
     if(!child1){
         int ret_val = dup2(fd[1],output);
         if(ret_val == -1){
             perror("smash error: dup2 failed");
-            exit(0);
+            return;
         }
         ret_val = close(fd[0]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         ret_val = close(fd[1]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         Command* cmd = smash->CreateCommand(args[0]);
         if(cmd) {
             cmd->execute();
             delete cmd;
         }
+        exit(0);
+
     }
     pid_t child2 = fork();
     if(child2 == -1){
         perror("smash error: fork failed");
-        exit(0);
+        return;
     }
     if(!child2){
         int ret_val = dup2(fd[0],STDIN_FILENO);
         if(ret_val == -1){
             perror("smash error: dup2 failed");
-            exit(0);
+            return;
         }
         ret_val = close(fd[0]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         ret_val = close(fd[1]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         Command* cmd = smash->CreateCommand(args[1]);
         if(cmd) {
             cmd->execute();
             delete cmd;
         }
+        exit(0);
     }
     else{
         ret_val = close(fd[0]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         ret_val = close(fd[1]);
         if(ret_val == -1){
             perror("smash error: close failed");
-            exit(0);
+            return;
         }
         waitpid(child1,nullptr,WUNTRACED);
         waitpid(child2,nullptr,WUNTRACED);

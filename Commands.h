@@ -97,7 +97,9 @@ private:
           original_cmd_line = (char*)malloc(sizeof(org_cmd_line)+1);
           strcpy(original_cmd_line,org_cmd_line);
       };
-      ~JobEntry(){}
+      ~JobEntry(){
+          free(original_cmd_line);
+      }
       time_t getStartTime(){
           return start_time;
       }
@@ -177,6 +179,7 @@ private:
 
 class SmallShell {
 private:
+    pid_t smash_pid;
     char* prev_dir;
     char* cur_dir;
     std::string shell_name;
@@ -188,6 +191,7 @@ public:
     SmallShell():jobs_list(new JobsList),in_fg(new JobsList),shell_name("smash"),timeout_list(new std::list<TimeoutEntry*>){
         cur_dir =  get_current_dir_name();
         prev_dir = get_current_dir_name();
+        smash_pid = getpid();
     };
     ~SmallShell();
     SmallShell(SmallShell const &) = delete; // disable copy ctor
@@ -204,6 +208,9 @@ public:
         static SmallShell instance; // Guaranteed to be destroyed.
         // Instantiated on first use.
         return instance;
+    }
+    pid_t getSmashPid(){
+        return smash_pid;
     }
     static bool cmp_alarms(TimeoutEntry* t1,  TimeoutEntry* t2){
         time_t now = time(nullptr);
@@ -233,8 +240,6 @@ public:
             int new_job_id;
             jobs_list->addJob(in_fg->getFGCmdLine(), pid, in_fg->getJobId(), &new_job_id,true);
             int ret_val = killpg(pid, SIGSTOP);
-            std::cout << ret_val <<std::endl ;
-            std::cout << pid <<std::endl;
             if (ret_val != 0){
                 perror("smash error: kill failed");
                 exit(0);
@@ -300,8 +305,9 @@ public:
     virtual ~BuiltInCommand() {}
 };
 class ShowPidCommand : public BuiltInCommand {
+    SmallShell* smash;
 public:
-    ShowPidCommand(const char* cmd_line): BuiltInCommand(cmd_line){};
+    ShowPidCommand(const char* cmd_line, SmallShell* smash): BuiltInCommand(cmd_line), smash(smash){};
     virtual ~ShowPidCommand() {}
     void execute() override;
 };
@@ -504,7 +510,9 @@ public:
         cmd_to_exe = (char*) malloc (sizeof(full.c_str())+1);
         strcpy(cmd_to_exe,full.c_str());
     };
-    virtual ~TimeoutCommand() {}
+    virtual ~TimeoutCommand() {
+        free(cmd_to_exe);
+    }
     void execute() override;
 };
 
