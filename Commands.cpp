@@ -260,7 +260,6 @@ void JobsList::removeFinishedJobs() {
     }
     if(jobs_list->empty()){
         SmallShell::getInstance().updateOverallMax(0);
-        num_jobs = 0;
         return;
     }
     jobs_list->sort(compareJobEntries);
@@ -288,11 +287,11 @@ void JobsList::removeJobById(int job_id) {
     for(auto job: *jobs_list){
         if (job->getJobId() == job_id){
             jobs_list->remove(job);
+            num_jobs--;
             if(jobs_list->empty()){
                 return;
             }
             jobs_list->sort(compareJobEntries);
-            num_jobs--;
             if (cur_max == job_id)
                 SmallShell::getInstance().updateOverallMax(jobs_list->back()->getJobId());
             return;
