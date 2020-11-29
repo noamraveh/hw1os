@@ -98,7 +98,7 @@ private:
   public:
       JobEntry(char* cmd_line,int pid, bool stopped, const char* org_cmd_line,int id = -1):cmd_line(cmd_line),process_id(pid), stopped(stopped),job_id(id){
           start_time = time(nullptr);
-          original_cmd_line = (char*)malloc(sizeof(org_cmd_line)+1);
+          original_cmd_line = (char*)malloc(PATH_MAX);
           strcpy(original_cmd_line,org_cmd_line);
       };
       ~JobEntry(){
@@ -581,7 +581,7 @@ public:
                 full.append(str3);
                 i++;
             }
-            cmd_to_exe = (char*) malloc (sizeof(full.c_str())+1);
+            cmd_to_exe = (char*) malloc (PATH_MAX);
             strcpy(cmd_to_exe,full.c_str());
             valid_input = true;
         }

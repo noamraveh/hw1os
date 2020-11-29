@@ -280,11 +280,15 @@ JobsList::JobEntry *JobsList::getJobById(int job_id) {
 void JobsList::removeJobById(int job_id) {
     int cur_max = SmallShell::getInstance().getOverallMax();
     if(jobs_list->empty()){
+
         return;
     }
     for(auto job: *jobs_list){
         if (job->getJobId() == job_id){
             jobs_list->remove(job);
+            if(jobs_list->empty()){
+                return;
+            }
             jobs_list->sort(compareJobEntries);
             num_jobs--;
             if (cur_max == job_id)
@@ -379,7 +383,7 @@ void ChangeDirCommand::execute() {
             if (smash->getDir() == "/"){
                 return;
             }
-            char* current = (char*)malloc(sizeof(smash->getDir())+1);
+            char* current = (char*)malloc(PATH_MAX);
             goBack(current);
             int ret_val = chdir(current);
             free(current);
@@ -514,7 +518,7 @@ void BackgroundCommand::execute() {
     if(no_args) {
         int lastStoppedId;
         if (!jobs_list->getLastStoppedJob(&lastStoppedId)) {
-            cout << "smash error: bg: there is no stopped job to resume" << endl;
+            cout << "smash error: bg: there is no stopped jobs to resume" << endl;
         }
         else {
             int pid = jobs_list->getJobById(lastStoppedId)->getProcessId();
@@ -718,6 +722,8 @@ void TimeoutCommand::execute() {
             TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid,new_job_id);
             timeout_list->push_back(timeout_entry);
             smash->SetAlarm();
+         //   waitpid(child_pid, nullptr,WNOHANG);
+           // timeout_list->remove(timeout_entry);
         }
         if(!_isBackgroundCommand(cmd_line)){
             int new_job_id;
@@ -727,6 +733,7 @@ void TimeoutCommand::execute() {
             timeout_list->push_back(timeout_entry);
             smash->SetAlarm();
             waitpid(child_pid, nullptr,WUNTRACED);
+            timeout_list->remove(timeout_entry);
             in_fg->clearJobs();
         }
         free(modified_cmd_line);
