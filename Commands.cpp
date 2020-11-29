@@ -474,6 +474,7 @@ void ForegroundCommand::execute() {
             }
 
             waitpid(pid,nullptr, WUNTRACED);
+            in_fg->clearJobs();
             jobs_list->removeJobById(job_id1);
 
         }
@@ -495,6 +496,7 @@ void ForegroundCommand::execute() {
 
             killpg(pid,SIGCONT);
             waitpid(pid,nullptr, WUNTRACED);
+            in_fg->clearJobs();
             jobs_list->removeJobById(job_id);
 
         }
@@ -544,7 +546,7 @@ void BackgroundCommand::execute() {
 
 void QuitCommand::execute() {
     if (kill){
-        cout<< "sending SIGKILL signal to "<< jobs_list->getNumJobs() << " jobs:"<<endl;
+        cout<< "smash: sending SIGKILL signal to "<< jobs_list->getNumJobs() << " jobs:"<<endl;
         jobs_list->killAllJobs();
         }
     exit(0);
@@ -577,6 +579,7 @@ void ExternalCommand::execute() {
             in_fg->clearJobs();
             in_fg->addJob(cmd_line, child_pid, -1, &new_job_id, false);
             waitpid(child_pid, nullptr, WUNTRACED);
+            in_fg->clearJobs();
         }
         free(modified_cmd_line);
     } else {
@@ -710,6 +713,7 @@ void TimeoutCommand::execute() {
             in_fg->clearJobs();
             in_fg->addJob(cmd_line,child_pid,-1,&new_job_id,false);
             waitpid(child_pid, nullptr,WUNTRACED);
+            in_fg->clearJobs();
         }
         free(modified_cmd_line);
     }
