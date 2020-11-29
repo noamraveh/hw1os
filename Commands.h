@@ -210,11 +210,6 @@ public:
         overall_max_job_id = new_max;
     }
     int getOverallMax(){
-        in_fg->removeFinishedJobs();
-        jobs_list->removeFinishedJobs();
-        int max_in_fg = in_fg->getMaxJob();
-        int max_in_bg = jobs_list->getMaxJob();
-        overall_max_job_id = fmax(max_in_bg,max_in_fg);
         return overall_max_job_id;
     }
     Command *CreateCommand(const char* cmd_line);
@@ -230,8 +225,15 @@ public:
     }
     static bool cmp_alarms(TimeoutEntry* t1,  TimeoutEntry* t2){
         time_t now = time(nullptr);
-        int t1_time_left = t1->getDuration() - (now - t1->getTimeStamp());
-        int t2_time_left = t2->getDuration() - (now - t2->getTimeStamp());
+        time_t start1 = t1->getTimeStamp();
+        int duration1 = t1->getDuration();
+        int time_past1 = now - start1;
+        time_t start2 = t2->getTimeStamp();
+        int duration2 = t2->getDuration();
+        int time_past2 = now - start2;
+
+        int t1_time_left = duration1 - time_past1;
+        int t2_time_left = duration2 - time_past2;
         return t1_time_left < t2_time_left;
     }
      void clearFinishedTimeoutProcesses(){
@@ -285,18 +287,21 @@ public:
     }
 
     void SetAlarm(){
-        alarm(0);
+       // alarm(0);
         if (timeout_list->empty())
             return;
-        clearFinishedTimeoutProcesses();
+        //clearFinishedTimeoutProcesses();
+        jobs_list->removeFinishedJobs();
         timeout_list->sort(cmp_alarms);
         TimeoutEntry* min_timeout = timeout_list->front();
         time_t now = time(nullptr);
         time_t start = min_timeout->getTimeStamp();
         int duration = min_timeout->getDuration();
-        int alarm_time = duration - (now - start);
+        int time_past = now - start;
+        int alarm_time = duration - time_past;
         int ret = alarm(alarm_time);
-        if (ret != 0){
+
+        if (ret < 0){
             perror("smash error: alarm failed");
             return;
         }
@@ -310,7 +315,10 @@ public:
         int cur_max = SmallShell::getInstance().getOverallMax();
         if (cur_max == min_timeout_job_id)
             SmallShell::getInstance().updateOverallMax(jobs_list->getMaxJob());
+
         if (!jobs_list->getJobById(min_timeout_job_id) && !in_fg->getJobById(min_timeout_job_id)){
+            timeout_list->remove(min_timeout);
+            SetAlarm();
             return;
         }
         std::cout << "smash: " << min_timeout->getCmdLine() <<" timed out!" <<std::endl;
@@ -606,18 +614,7 @@ public:
     virtual ~PipeCommand() {}
     void execute() override;
 };
-class CopyDirCommand : public BuiltInCommand {
-    char* old_path;
-    char* new_path;
-    bool is_bg;
-    JobsList* jobs_list;
-    JobsList* in_fg;
-    bool valid_input;
-public:
-    CopyDirCommand(const char *cmd_line, char **cmd_args,JobsList* jobs_list, JobsList* in_fg);
-    ~CopyDirCommand() override = default;
-    void execute() override;
-};
+
 
 
 

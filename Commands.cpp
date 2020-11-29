@@ -174,9 +174,6 @@ Command * SmallShell::CreateCommand(const char* cmd_line) {
     else if (cmd_s.find("timeout") == 0) {
         return new TimeoutCommand(cmd_line, cmd_args, timeout_list, this, jobs_list, in_fg);
     }
-    else if (cmd_s.find("cp") == 0) {
-        return new CopyDirCommand(cmd_line, cmd_args, jobs_list, in_fg);
-    }
     else {
          return new ExternalCommand(cmd_line,jobs_list,in_fg); //TODO:External command
     }
@@ -240,9 +237,10 @@ void JobsList::killAllJobs() {
     }
     for (auto job : *jobs_list){
         int ret_val = kill(job->getProcessId(),SIGKILL);
-        if(ret_val != 0)
+        if(ret_val != 0) {
             perror("smash error: kill failed");
             return;
+        }
     }
     jobs_list->clear();
 }
@@ -262,7 +260,7 @@ void JobsList::removeFinishedJobs() {
     }
     if(jobs_list->empty()){
         SmallShell::getInstance().updateOverallMax(0);
-
+        num_jobs = 0;
         return;
     }
     jobs_list->sort(compareJobEntries);
@@ -278,11 +276,13 @@ JobsList::JobEntry *JobsList::getJobById(int job_id) {
             return job; // TODO: throw error if not found
         }
     }
+    return nullptr;
 }
 
 void JobsList::removeJobById(int job_id) {
     int cur_max = SmallShell::getInstance().getOverallMax();
     if(jobs_list->empty()){
+
         return;
     }
     for(auto job: *jobs_list){
@@ -434,8 +434,6 @@ void JobsCommand::execute() {
     if(jobs_list->getNumJobs() ==0){
         return;
     }
-    in_fg->updateIdInFg(0);
-    jobs_list->updateIdInFg(0);
     jobs_list->removeFinishedJobs();
     jobs_list->printJobsList();
 }
@@ -481,6 +479,7 @@ void ForegroundCommand::execute() {
 
             int ret_val = killpg(pid,SIGCONT);
             if (ret_val == -1){
+
                 perror("smash error: kill failed");
                 return;
             }
@@ -527,6 +526,7 @@ void BackgroundCommand::execute() {
             cout << jobs_list->getJobById(lastStoppedId)->getOrgCmdLine() << " : " << pid << endl;
             int ret_val = killpg(pid, SIGCONT);
             if(ret_val == -1){
+
                 perror("smash error: kill failed");
                 return;
             }
@@ -849,104 +849,3 @@ void PipeCommand::execute() {
         waitpid(child2,nullptr,WUNTRACED);
     }
 }
-CopyDirCommand::CopyDirCommand(const char *cmd_line, char **cmd_args, JobsList* jobs_list,JobsList* in_fg) :BuiltInCommand(cmd_line),jobs_list(jobs_list),in_fg(in_fg) {
-    if(!cmd_args[1]){
-        valid_input = false;
-        return;
-    }
-    old_path= cmd_args[1];
-
-    if(cmd_args[2]){
-        valid_input = false;
-    }
-    new_path = cmd_args[2];
-
-    if(_isBackgroundCommand(cmd_line)){
-        is_bg = true;
-    }
-    valid_input = true;
-}
-
-void CopyDirCommand::execute() {
-    if(!valid_input){
-        return;
-    }
-    pid_t child_pid = fork();
-    if(child_pid < 0){
-        perror("smash error: fork failed");
-        return;
-    }
-    setpgrp();
-
-    if (child_pid > 0){
-        int new_job_id;
-        if(is_bg){
-            char *modified_cmd_line = (char *) malloc(200);
-            strcpy(modified_cmd_line, getCmdLine());
-            _removeBackgroundSign(modified_cmd_line);
-            jobs_list->addJob(modified_cmd_line,child_pid,-1,&new_job_id);
-        }
-        else{
-            in_fg->addJob(getCmdLine(),child_pid,-1,&new_job_id);
-            waitpid(child_pid,nullptr,WUNTRACED);
-
-        }
-    }
-    if(child_pid == 0) {
-        if (is_bg) {
-            _removeBackgroundSign(new_path);
-        }
-        int fd1 = open(old_path, O_RDONLY);
-        if (fd1 == -1) {
-            perror("smash error: open failed");
-            return;
-        }
-        int fd2 = open(new_path, O_RDWR | O_CREAT | O_TRUNC, 00777);
-        if (fd2 == -1) {
-            close(fd1);
-            perror("smash error: open failed");
-            return;
-        }
-        char buffer[1024];
-        int read_val = read(fd1, &buffer, 1024);
-
-        while (read_val != -1) {
-            if (!read_val) {
-                break;
-            }
-            int write_val = write(fd2, &buffer, 1024);
-            if (write_val == -1) {
-                close(fd1);
-                close(fd2);
-                perror("smash error: read failed");
-                return;
-            }
-            read_val = read(fd1, &buffer, 1024);
-            if (read_val == -1) {
-                close(fd1);
-                close(fd2);
-                perror("smash error: read failed");
-                return;
-            }
-        }
-        if (read_val == -1) {
-            close(fd1);
-            close(fd2);
-            perror("smash error: read failed");
-            return;
-        }
-        int ret_val = close(fd1);
-        if(ret_val == -1){
-            perror("smash error: close failed");
-            return;
-        }
-        ret_val = close(fd2);
-        if(ret_val == -1){
-            perror("smash error: close failed");
-            return;
-        }
-    }
-    _removeBackgroundSign(new_path);
-    cout<< "smash: "<< old_path << " was copied to " << new_path << endl;
-}
-
