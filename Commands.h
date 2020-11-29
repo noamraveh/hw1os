@@ -210,6 +210,11 @@ public:
         overall_max_job_id = new_max;
     }
     int getOverallMax(){
+        in_fg->removeFinishedJobs();
+        jobs_list->removeFinishedJobs();
+        int max_in_fg = in_fg->getMaxJob();
+        int max_in_bg = jobs_list->getMaxJob();
+        overall_max_job_id = fmax(max_in_bg,max_in_fg);
         return overall_max_job_id;
     }
     Command *CreateCommand(const char* cmd_line);
@@ -614,6 +619,19 @@ public:
     virtual ~PipeCommand() {}
     void execute() override;
 };
+class CopyDirCommand : public BuiltInCommand {
+    char* old_path;
+    char* new_path;
+    bool is_bg;
+    JobsList* jobs_list;
+    JobsList* in_fg;
+    bool valid_input;
+public:
+    CopyDirCommand(const char *cmd_line, char **cmd_args,JobsList* jobs_list, JobsList* in_fg);
+    ~CopyDirCommand() override = default;
+    void execute() override;
+};
+
 
 
 
