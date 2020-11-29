@@ -187,7 +187,7 @@ void SmallShell::executeCommand(const char *cmd_line) {
 void JobsList::addJob(const char* cmd_line,pid_t pid,int cur_job_id, int* new_id,bool is_stopped) {
     if (!jobs_list->empty())
         removeFinishedJobs();
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    char* un_const_cmd_line = (char*)malloc(200);
     strcpy(un_const_cmd_line,cmd_line);
     _removeBackgroundSign(un_const_cmd_line);
     if (cur_job_id == -1) {
@@ -229,10 +229,10 @@ void JobsList::killAllJobs() {
         return;
     }
     for (auto job: *jobs_list){
-        cout << job->getProcessId() << ": " << job->getCmdLine();
-        if (!job->isStopped()){
-            cout << "&";
-        }
+        cout << job->getProcessId() << ": " << job->getOrgCmdLine();
+    //    if (!job->isStopped()){
+   //         cout << "&";
+    //    }
         cout<<endl;
     }
     for (auto job : *jobs_list){
@@ -256,6 +256,11 @@ void JobsList::removeFinishedJobs() {
     for (auto job:to_remove){
         jobs_list->remove(job);
         num_jobs--;
+    }
+    if(jobs_list->empty()){
+        SmallShell::getInstance().updateOverallMax(0);
+
+        return;
     }
     jobs_list->sort(compareJobEntries);
     SmallShell::getInstance().updateOverallMax(jobs_list->back()->getJobId());
@@ -430,6 +435,7 @@ void JobsCommand::execute() {
 }
 
 void KillCommand::execute() {
+    jobs_list->removeFinishedJobs();
     int pid = jobs_list->getPid(job_id);
     if (!valid_input){
         cout<<"smash error: kill: invalid arguments"<<endl;
@@ -546,6 +552,7 @@ void BackgroundCommand::execute() {
 
 void QuitCommand::execute() {
     if (kill){
+        jobs_list->removeFinishedJobs();
         cout<< "smash: sending SIGKILL signal to "<< jobs_list->getNumJobs() << " jobs:"<<endl;
         jobs_list->killAllJobs();
         }
@@ -553,7 +560,7 @@ void QuitCommand::execute() {
 }
 
 void ExternalCommand::execute() {
-    char* un_const_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    char* un_const_cmd_line = (char*)malloc(200);
     strcpy(un_const_cmd_line,cmd_line);
     char arg0[] = "/bin/bash";
     char arg1[] = "-c";
@@ -566,7 +573,7 @@ void ExternalCommand::execute() {
     }
     setpgrp();
     if (child_pid > 0) {
-        char *modified_cmd_line = (char *) malloc(sizeof(cmd_line) + 1);
+        char *modified_cmd_line = (char *) malloc(200);
         strcpy(modified_cmd_line, cmd_line);
         _removeBackgroundSign(modified_cmd_line);
         int diff = strcmp(cmd_line, modified_cmd_line);
@@ -592,7 +599,7 @@ RedirectionCommand::RedirectionCommand(const char *cmd_line, bool to_append, boo
                                        SmallShell *smash, JobsList *in_fg, char **cmd_args_in,
                                        std::list<TimeoutEntry *> *timeout_list) :Command(cmd_line), jobs_list(jobs_list) ,to_append(to_append), built_in(built_in), smash(smash),in_fg(in_fg),timeout_list(timeout_list) {
     is_bg = _isBackgroundCommand(cmd_line);
-    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    char* unconst_cmd_line = (char*)malloc(200);
     strcpy(unconst_cmd_line,cmd_line);
     args[0] = strtok(unconst_cmd_line, ">");
     args[1] = strtok(nullptr, ">");
@@ -724,7 +731,7 @@ void TimeoutCommand::execute() {
 }
 
 PipeCommand::PipeCommand(const char *cmd_line, bool err, SmallShell* smash):Command(cmd_line),err(err),smash(smash){
-    char* unconst_cmd_line = (char*)malloc(sizeof(cmd_line)+1);
+    char* unconst_cmd_line = (char*)malloc(200);
     strcpy(unconst_cmd_line,cmd_line);
     if (err){
         args[0] = strtok(unconst_cmd_line, "|&");
