@@ -686,6 +686,10 @@ void RedirectionCommand::execute() {
 }
 
 void TimeoutCommand::execute() {
+    if(!valid_input){
+        cout<<"smash error: timeout: invalid arguments"<<endl;
+        return;
+    }
 
     char* un_const_cmd_line = (char*)malloc(200);
     strcpy(un_const_cmd_line,cmd_to_exe);
@@ -708,17 +712,20 @@ void TimeoutCommand::execute() {
         int diff = strcmp(cmd_to_exe,modified_cmd_line);
         char* test_malloced = (char*)malloc(200);
         strcpy(test_malloced,cmd_line);
-        TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid);
-        timeout_list->push_back(timeout_entry);
-        smash->SetAlarm();
         if (diff){
             int new_job_id;
             jobs_list->addJob(cmd_line,child_pid,-1,&new_job_id,false);
+            TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid,new_job_id);
+            timeout_list->push_back(timeout_entry);
+            smash->SetAlarm();
         }
         if(!_isBackgroundCommand(cmd_line)){
             int new_job_id;
             in_fg->clearJobs();
             in_fg->addJob(cmd_line,child_pid,-1,&new_job_id,false);
+            TimeoutEntry* timeout_entry = new TimeoutEntry(test_malloced,duration,child_pid,new_job_id);
+            timeout_list->push_back(timeout_entry);
+            smash->SetAlarm();
             waitpid(child_pid, nullptr,WUNTRACED);
             in_fg->clearJobs();
         }

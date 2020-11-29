@@ -64,8 +64,9 @@ private:
     time_t timestamp;
     int duration;
     pid_t pid;
+    int job_id;
 public:
-    TimeoutEntry(const char* cmd_line,int duration,pid_t pid): org_cmd_line(cmd_line),duration(duration),pid(pid){
+    TimeoutEntry(const char* cmd_line,int duration,pid_t pid, int job_id): org_cmd_line(cmd_line),duration(duration),pid(pid), job_id(job_id){
         timestamp = time(nullptr);
     }
     ~TimeoutEntry(){}
@@ -80,6 +81,9 @@ public:
     }
     const char* getCmdLine(){
         return org_cmd_line;
+    }
+    int getJobId(){
+        return job_id;
     }
 };
 class JobsList {
@@ -296,14 +300,23 @@ public:
     void killAlarmedProcess(){
         TimeoutEntry* min_timeout = timeout_list->front();
         pid_t pid_to_kill = min_timeout->getPid();
+        int min_timeout_job_id = min_timeout->getJobId();
+        jobs_list->removeFinishedJobs();
+        int cur_max = SmallShell::getInstance().getOverallMax();
+        if (cur_max == min_timeout_job_id)
+            SmallShell::getInstance().updateOverallMax(jobs_list->getMaxJob());
+        if (!jobs_list->getJobById(min_timeout_job_id) && !in_fg->getJobById(min_timeout_job_id)){
+            return;
+        }
         std::cout << "smash: " << min_timeout->getCmdLine() <<" timed out!" <<std::endl;
         int ret = killpg(pid_to_kill,SIGKILL);
-        timeout_list->remove(min_timeout);
-        jobs_list->removeFinishedJobs();
         if (ret != 0){
             perror("smash error: kill failed");
             return;
         }
+        timeout_list->remove(min_timeout);
+        jobs_list->removeFinishedJobs();
+
         SetAlarm();
     }
 };
@@ -531,22 +544,48 @@ class TimeoutCommand:public Command{
     char* cmd_to_exe;
     const char* cmd_line;
     int duration;
+    bool valid_input;
 public:
     TimeoutCommand(const char* cmd_line, char** args, std::list<TimeoutEntry*>* timeout_list, SmallShell* smash, JobsList* jobs_list, JobsList* in_fg): Command(cmd_line),cmd_line(cmd_line), timeout_list(timeout_list), smash(smash), jobs_list(jobs_list), in_fg(in_fg){
-        duration = std::stoi(std::string(args[1]));
-        std::string str1(args[2]);
-        std::string str2 (" ");
-        std::string full(str1+str2);
-        int i = 3;
-        while (args[i]){
-            std::string str3(args[i]);
-            str3 = str3 + " ";
-            full.append(str3);
-            i++;
+        bool invalid_job;
+        if (!args[1]){ // checks if written just: TIMEOUT
+            valid_input = false;
+            return;
         }
-        cmd_to_exe = (char*) malloc (sizeof(full.c_str())+1);
-        strcpy(cmd_to_exe,full.c_str());
-    };
+        else{
+            if(*args[1] == '-'){  // checks if duration is negative
+                valid_input = false;
+                return;
+            }
+            std::string str(args[1]);
+            for (int i = 1;i<str.length(); i++){
+                if (!isdigit(*(args[1] + i))){
+                    valid_input = false;
+                    return;
+                    }
+                }
+            // time is provided and legit
+            duration = std::stoi(std::string(args[1]));
+
+            if(!args[2]){
+                valid_input = false;
+                return;
+            }
+            std::string str1(args[2]);
+            std::string str2 (" ");
+            std::string full(str1+str2);
+            int i = 3;
+            while (args[i]){
+                std::string str3(args[i]);
+                str3 = str3 + " ";
+                full.append(str3);
+                i++;
+            }
+            cmd_to_exe = (char*) malloc (sizeof(full.c_str())+1);
+            strcpy(cmd_to_exe,full.c_str());
+            valid_input = true;
+        }
+    }
     virtual ~TimeoutCommand() {
         free(cmd_to_exe);
     }
