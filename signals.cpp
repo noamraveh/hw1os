@@ -6,14 +6,10 @@
 using namespace std;
 
 void ctrlZHandler(int sig_num) {
-    pid_t pid = getpid();
-
     SmallShell::getInstance().StopFG();
 }
 
 void ctrlCHandler(int sig_num) {
-    pid_t pid = getpid();
-
     SmallShell::getInstance().KillFG();
 }
 
