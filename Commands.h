@@ -565,7 +565,6 @@ class TimeoutCommand:public Command{
     bool valid_input;
 public:
     TimeoutCommand(const char* cmd_line, char** args, std::list<TimeoutEntry*>* timeout_list, SmallShell* smash, JobsList* jobs_list, JobsList* in_fg): Command(cmd_line),cmd_line(cmd_line), timeout_list(timeout_list), smash(smash), jobs_list(jobs_list), in_fg(in_fg){
-        bool invalid_job;
         if (!args[1]){ // checks if written just: TIMEOUT
             valid_input = false;
             return;

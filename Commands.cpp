@@ -239,7 +239,7 @@ void JobsList::killAllJobs() {
         cout<<endl;
     }
     for (auto job : *jobs_list){
-        int ret_val = kill(job->getProcessId(),SIGKILL);
+        int ret_val = killpg(job->getProcessId(),SIGKILL); /////was previously just kill and not kill pg
         if(ret_val != 0) {
             perror("smash error: kill failed");
             return;
@@ -852,6 +852,7 @@ void PipeCommand::execute() {
     }
 }
 CopyDirCommand::CopyDirCommand(const char *cmd_line, char **cmd_args, JobsList* jobs_list,JobsList* in_fg) :BuiltInCommand(cmd_line),jobs_list(jobs_list),in_fg(in_fg) {
+    is_bg = false;
     if(!cmd_args[1]){
         valid_input = false;
         return;
@@ -891,7 +892,7 @@ void CopyDirCommand::execute() {
         else{
             in_fg->addJob(getCmdLine(),child_pid,-1,&new_job_id);
             waitpid(child_pid,nullptr,WUNTRACED);
-
+            in_fg->clearJobs();
         }
 
     }
