@@ -863,6 +863,7 @@ CopyDirCommand::CopyDirCommand(const char *cmd_line, char **cmd_args, JobsList* 
         valid_input = false;
     }
     new_path = cmd_args[2];
+    _removeBackgroundSign(new_path);
 
     if(_isBackgroundCommand(cmd_line)){
         is_bg = true;
@@ -897,9 +898,6 @@ void CopyDirCommand::execute() {
 
     }
     if(child_pid == 0) {
-        if (is_bg) {
-            _removeBackgroundSign(new_path);
-        }
         int fd1 = open(old_path, O_RDONLY);
         if (fd1 == -1) {
             perror("smash error: open failed");

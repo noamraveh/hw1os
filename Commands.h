@@ -89,12 +89,12 @@ public:
 class JobsList {
 private:
   class JobEntry {
-      int job_id; //TODO: keep the ID even if moved to fg and then back to bg
       char* cmd_line;
       int process_id;
-      time_t start_time;
       bool stopped;
       char* original_cmd_line;
+      int job_id; //TODO: keep the ID even if moved to fg and then back to bg
+      time_t start_time;
   public:
       JobEntry(char* cmd_line,int pid, bool stopped, const char* org_cmd_line,int id = -1):cmd_line(cmd_line),process_id(pid), stopped(stopped),job_id(id){
           start_time = time(nullptr);
@@ -186,9 +186,9 @@ private:
     pid_t smash_pid;
     char* prev_dir;
     char* cur_dir;
-    std::string shell_name;
     JobsList* jobs_list;
     JobsList* in_fg;
+    std::string shell_name;
     std::list<TimeoutEntry*>* timeout_list;
     unsigned int overall_max_job_id;
     // TODO: Add your data members
@@ -426,7 +426,7 @@ class KillCommand : public BuiltInCommand {
     else {
         //check if signum is legit
         std::string str(cmd_args[1]);
-        for (int i = 1;i<str.length(); i++){
+        for (unsigned int i = 1;i<str.length(); i++){
             if (!isdigit(*(cmd_args[1] + i)))
                 valid_input = false;
         }
@@ -441,7 +441,7 @@ class KillCommand : public BuiltInCommand {
             bool is_neg = *cmd_args[2] == '-';
             //check if job is legit
             std::string str(cmd_args[2]);
-            for (int i = 1;i<str.length(); i++){
+            for (unsigned int i = 1;i<str.length(); i++){
                 if (!isdigit(*(cmd_args[2] + i))) {
                     valid_input = false;
                     invalid_job = true;
@@ -538,13 +538,13 @@ public:
 };
 
 class RedirectionCommand : public Command {
-    SmallShell* smash;
-    JobsList* jobs_list;
-    char* args[2];
     bool to_append;
     bool built_in;
+    JobsList* jobs_list;
+    SmallShell* smash;
     JobsList* in_fg;
     std::list<TimeoutEntry*>* timeout_list;
+    char* args[2];
     char* cmd_args[20];
     bool is_bg;
 public:
@@ -555,12 +555,12 @@ public:
     //void cleanup() override;
 };
 class TimeoutCommand:public Command{
+    const char* cmd_line;
+    std::list<TimeoutEntry*>* timeout_list;
     SmallShell* smash;
     JobsList* jobs_list;
     JobsList* in_fg;
-    std::list<TimeoutEntry*>* timeout_list;
     char* cmd_to_exe;
-    const char* cmd_line;
     int duration;
     bool valid_input;
 public:
@@ -575,7 +575,7 @@ public:
                 return;
             }
             std::string str(args[1]);
-            for (int i = 1;i<str.length(); i++){
+            for (unsigned int i = 1;i<str.length(); i++){
                 if (!isdigit(*(args[1] + i))){
                     valid_input = false;
                     return;
