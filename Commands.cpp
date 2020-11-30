@@ -897,9 +897,6 @@ void CopyDirCommand::execute() {
     if (child_pid > 0){
         int new_job_id;
         if(is_bg){
-            char *modified_cmd_line = (char *) malloc(200);
-            strcpy(modified_cmd_line, getCmdLine());
-            _removeBackgroundSign(modified_cmd_line);
             jobs_list->addJob(getCmdLine(),child_pid,-1,&new_job_id);
         }
         else{
@@ -925,10 +922,7 @@ void CopyDirCommand::execute() {
         int read_val = read(fd1, &buffer, BUFSIZ);
 
         while (read_val != -1) {
-            if (!read_val) {
-                break;
-            }
-            int write_val = write(fd2,buffer,read_val);
+            int write_val = write(fd2,&buffer,read_val);
             if (write_val == -1) {
                 close(fd1);
                 close(fd2);

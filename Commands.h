@@ -519,7 +519,9 @@ class QuitCommand : public BuiltInCommand {
     bool kill;
 public:
     QuitCommand(const char* cmd_line,char** cmd_args, JobsList* jobs_list): BuiltInCommand(cmd_line), jobs_list(jobs_list) ,kill(false){
-        if (strcmp(cmd_args[1],"kill") == 0){
+        if (!cmd_args[1])
+            kill = false;
+        else if (strcmp(cmd_args[1],"kill") == 0){
             kill = true;
         }
     }
