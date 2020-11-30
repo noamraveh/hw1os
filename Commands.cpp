@@ -892,7 +892,6 @@ void CopyDirCommand::execute() {
         perror("smash error: fork failed");
         return;
     }
-    setpgrp();
 
     if (child_pid > 0){
         int new_job_id;
@@ -919,17 +918,20 @@ void CopyDirCommand::execute() {
             return;
         }
         char buffer[BUFSIZ];
-        int read_val = read(fd1, &buffer, BUFSIZ);
+        int read_val = read(fd1, buffer, BUFSIZ);
 
         while (read_val != -1) {
-            int write_val = write(fd2,&buffer,read_val);
+            if(!read_val){
+                break;
+            }
+            int write_val = write(fd2,buffer,read_val);
             if (write_val == -1) {
                 close(fd1);
                 close(fd2);
                 perror("smash error: read failed");
                 return;
             }
-            read_val = read(fd1, &buffer, BUFSIZ);
+            read_val = read(fd1, buffer, BUFSIZ);
         }
 
         if (read_val == -1) {
@@ -948,7 +950,7 @@ void CopyDirCommand::execute() {
             perror("smash error: close failed");
             return;
         }
-        _removeBackgroundSign(new_path);
+        setpgrp();
         cout<< "smash: "<< old_path << " was copied to " << new_path << endl;
     }
 }
