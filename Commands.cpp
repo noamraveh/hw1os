@@ -875,6 +875,18 @@ void CopyDirCommand::execute() {
     if(!valid_input){
         return;
     }
+    //checking that the paths are ok
+    char* old_path_val = realpath(old_path,nullptr);
+    char* new_path_val = realpath(new_path, nullptr);
+    if(old_path_val && new_path_val) {
+        if (!strcmp(old_path, new_path)) {
+            free(old_path_val);
+            free(new_path_val);
+            return;
+        }
+        free(old_path_val);
+        free(new_path_val);
+    }
     pid_t child_pid = fork();
     if(child_pid < 0){
         perror("smash error: fork failed");
