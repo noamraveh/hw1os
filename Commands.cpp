@@ -892,14 +892,16 @@ void CopyDirCommand::execute() {
         perror("smash error: fork failed");
         return;
     }
-
+    setpgrp();
     if (child_pid > 0){
         int new_job_id;
         if(is_bg){
-            jobs_list->addJob(getCmdLine(),child_pid,-1,&new_job_id);
+            jobs_list->removeFinishedJobs();
+            jobs_list->addJob(getCmdLine(),child_pid,-1,&new_job_id,false);
         }
         else{
-            in_fg->addJob(getCmdLine(),child_pid,-1,&new_job_id);
+            in_fg->clearJobs();
+            in_fg->addJob(getCmdLine(),child_pid,-1,&new_job_id,false);
             waitpid(child_pid,nullptr,WUNTRACED);
             in_fg->clearJobs();
         }
@@ -918,20 +920,20 @@ void CopyDirCommand::execute() {
             return;
         }
         char buffer[BUFSIZ];
-        int read_val = read(fd1, buffer, BUFSIZ);
+        int read_val = read(fd1,&buffer, BUFSIZ);
 
         while (read_val != -1) {
             if(!read_val){
                 break;
             }
-            int write_val = write(fd2,buffer,read_val);
+            int write_val = write(fd2,&buffer,read_val);
             if (write_val == -1) {
                 close(fd1);
                 close(fd2);
                 perror("smash error: read failed");
                 return;
             }
-            read_val = read(fd1, buffer, BUFSIZ);
+            read_val = read(fd1, &buffer, BUFSIZ);
         }
 
         if (read_val == -1) {
@@ -950,8 +952,12 @@ void CopyDirCommand::execute() {
             perror("smash error: close failed");
             return;
         }
-        setpgrp();
         cout<< "smash: "<< old_path << " was copied to " << new_path << endl;
+        ret_val = kill(getpid(),SIGKILL);
+        if (ret_val == -1){
+            perror("smash error: kill failed");
+            return;
+        }
     }
 }
 
