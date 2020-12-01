@@ -239,7 +239,7 @@ void JobsList::killAllJobs() {
         cout<<endl;
     }
     for (auto job : *jobs_list){
-        int ret_val = killpg(job->getProcessId(),SIGKILL); /////was previously just kill and not kill pg
+        int ret_val = kill(job->getProcessId(),SIGKILL); /////was previously just kill and not kill pg
         if(ret_val != 0) {
             perror("smash error: kill failed");
             return;
